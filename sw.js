@@ -1,10 +1,11 @@
 // 金禾鍋貼 PWA Service Worker
 // 策略：頁面「網路優先、離線退回快取」；其他資源「先用快取、背景更新」。
-const VERSION = 'v3';
+const VERSION = 'v4';
 const CACHE = 'jinhe-' + VERSION;
 const SHELL = [
   './',
   './index.html',
+  './config.js',
   './manifest.webmanifest',
   './icons/icon-192.png',
   './icons/icon-512.png',
@@ -33,12 +34,12 @@ self.addEventListener('fetch', (e) => {
   const host = new URL(req.url).hostname;
   if (host === 'script.google.com' || host.endsWith('.googleusercontent.com') || host.endsWith('.google.com')) return;
 
-  // 頁面導覽：網路優先
-  if (req.mode === 'navigate') {
+  // 頁面導覽與設定檔：網路優先
+  if (req.mode === 'navigate' || new URL(req.url).pathname.endsWith('/config.js')) {
     e.respondWith(
       fetch(req)
-        .then((res) => { const copy = res.clone(); caches.open(CACHE).then((c) => c.put('./index.html', copy)); return res; })
-        .catch(() => caches.match('./index.html'))
+        .then((res) => { const copy = res.clone(); caches.open(CACHE).then((c) => c.put(req.mode === 'navigate' ? './index.html' : req, copy)); return res; })
+        .catch(() => caches.match(req.mode === 'navigate' ? './index.html' : req))
     );
     return;
   }

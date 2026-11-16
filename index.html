@@ -1247,6 +1247,7 @@
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
   <!-- ================= JAVASCRIPT ================= -->
+  <script src="config.js"></script>
   <script>
     "use strict";
 
@@ -1391,9 +1392,8 @@
     ];
 
     // ================= Google Sheet 串接設定 =================
-    // 部署 Apps Script（見 gas/README.md）後，把「網頁應用程式網址」貼在下方引號內。
-    // 留空 = 示範模式：使用內建菜單，結帳只顯示本機模擬畫面。
-    const GAS_URL = "https://script.google.com/macros/s/AKfycbwIsmvI--cU5ipo3-fLOwVRrRvbcG4jzfKXfDhfOQjUuqUmqMQYG9oVmnc0FA_3_EQE/exec";
+    // 網址設定在 config.js；留空 = 示範模式（內建菜單、結帳只顯示本機模擬畫面）。
+    const GAS_URL = (window.JINHE_CONFIG && window.JINHE_CONFIG.GAS_URL) || "";
     const LIVE = Boolean(GAS_URL);
     const MENU_CACHE_KEY = "jinhe-menu-v1";
     let shopOpen = true;
@@ -1474,6 +1474,17 @@
         console.warn("菜單同步失敗，使用內建／快取菜單", e);
       }
     }
+
+    // 店家自我檢查：在網站按 F12 開主控台，輸入 jinheCheck() 即可
+    window.jinheCheck = async function () {
+      if (!LIVE) { console.log("尚未設定 GAS_URL（config.js），目前是示範模式。"); return; }
+      try {
+        const res = await fetchWithTimeout(GAS_URL + "?action=health", {}, 15000);
+        const text = await res.text();
+        try { console.log("後端回應：", JSON.parse(text)); }
+        catch (e) { console.error("後端回傳的不是 JSON（前 200 字）：", text.slice(0, 200), "→ 請檢查部署權限（所有人）與網址（/exec）"); }
+      } catch (e) { console.error("連線失敗：", e); }
+    };
 
     // 串接後把「示範」文案換成真實接單說明
     function applyOrderMode() {
@@ -1858,8 +1869,16 @@
           }
         }
       } catch (err) {
-        console.warn(err);
-        showCheckoutError("網路連線異常或系統忙碌，請稍後再按一次「送出訂單」（不會重複下單）。");
+        console.warn("訂單送出失敗：", err);
+        if (err && err.name === "AbortError") {
+          showCheckoutError("連線逾時，系統可能正在忙碌。請稍後再按一次「送出訂單」（不會重複下單）。");
+        } else if (err instanceof SyntaxError) {
+          console.error("後端回應不是 JSON：多半是 Apps Script 部署的「誰可以存取」未設為「所有人」，或網址不是 /exec。");
+          showCheckoutError("目前無法送出訂單（訂單系統尚未就緒），請稍後再試或直接聯絡店家。");
+        } else {
+          console.error("無法連線到後端：請確認網址、網路，以及 Apps Script 部署的「執行身分=我、誰可以存取=所有人」。");
+          showCheckoutError("無法連線到訂單系統，請檢查網路後再按一次「送出訂單」（不會重複下單），或直接聯絡店家。");
+        }
       } finally {
         submitting = false;
         button.disabled = false;

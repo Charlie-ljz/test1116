@@ -5,9 +5,11 @@
  *  - GET  ?action=menu  ：回傳「商品」工作表的菜單（上架、售完狀態皆由 Sheet 控制）
  *  - POST（JSON 文字）  ：接收結帳資料 → 伺服器端重新驗價 → 寫入「訂單」「明細」→ Email 通知店家與顧客
  *
- * 安裝：請看 gas/README.md。第一次請先在編輯器執行 setup()。
+ * 安裝：請看 gas/README.md。貼上程式並重新整理試算表後，上方會出現「金禾點餐」選單，
+ *       依序點選「① 初始化」「② 檢查設定」即可，不需要在編輯器找函式。
  */
 
+const VERSION = 'v2';
 const TZ = 'Asia/Taipei';
 const SHEET = { PRODUCTS: '商品', ORDERS: '訂單', ITEMS: '明細', SETTINGS: '設定' };
 
@@ -45,6 +47,56 @@ const SEED_PRODUCTS = [
     ["a4", "side", "香滷海帶", "清爽柔韌，帶有淡淡滷香。", 35, "1 份", "小菜", "https://images.unsplash.com/photo-1512621776951-a57141f2eefd?auto=format&fit=crop&w=800&q=80", true, false, 160],
     ["gift50", "gift", "招牌招財鍋貼禮盒", "冷凍鍋貼家庭分享組，50 顆裝。", 499, "50 顆", "冷凍禮盒", "https://images.unsplash.com/photo-1563245372-f21724e3856d?auto=format&fit=crop&w=800&q=80", true, false, 170]
 ];
+
+/* =========================================================
+ * 試算表上方的「金禾點餐」選單（免進編輯器操作）
+ * ========================================================= */
+function onOpen() {
+  SpreadsheetApp.getUi().createMenu('金禾點餐')
+    .addItem('① 初始化（建立工作表與預設菜單）', 'menuSetup')
+    .addItem('② 檢查設定', 'menuCheck')
+    .addItem('③ 寄測試信給店家', 'menuTestMail')
+    .addItem('④ 寫入一筆測試訂單', 'menuTestOrder')
+    .addItem('⑤ 顯示網頁應用程式網址', 'menuShowUrl')
+    .addToUi();
+}
+
+function alert_(title, msg) { SpreadsheetApp.getUi().alert(title, msg, SpreadsheetApp.getUi().ButtonSet.OK); }
+
+function menuSetup() {
+  setup();
+  alert_('初始化完成', '已建立「商品」「訂單」「明細」「設定」四個工作表。\n\n下一步：到「設定」工作表填入「店家通知信箱」，再點選單 ② 檢查設定。');
+}
+
+function menuCheck() {
+  const r = health_();
+  const lines = r.problems.length
+    ? ['發現 ' + r.problems.length + ' 個問題：', ''].concat(r.problems.map((p, i) => (i + 1) + '. ' + p))
+    : ['✅ 一切正常！', '', '上架商品：' + r.products + ' 項', '店家通知信箱：' + r.storeEmail, '營業中：' + (r.open ? '是' : '否 (已暫停接單)')];
+  alert_('設定檢查（' + VERSION + '）', lines.join('\n'));
+}
+
+function menuTestMail() {
+  const s = getSettings_();
+  if (!s.storeEmail) { alert_('無法寄信', '請先在「設定」工作表填入「店家通知信箱」。'); return; }
+  MailApp.sendEmail({ to: s.storeEmail, name: s.storeName, subject: '【測試信】金禾線上點餐', htmlBody: '<p>這是一封測試信，收到代表 Email 通知設定正常。</p>' });
+  alert_('已寄出', '測試信已寄到：' + s.storeEmail + '\n（若沒收到，請檢查垃圾郵件匣）');
+}
+
+function menuTestOrder() {
+  const res = testOrder();
+  alert_(res.ok ? '測試訂單已寫入' : '測試訂單失敗', res.ok
+    ? '訂單編號：' + res.orderNumber + '\n請到「訂單」「明細」工作表查看，確認後可刪除該列。'
+    : JSON.stringify(res));
+}
+
+function menuShowUrl() {
+  let url = '';
+  try { url = ScriptApp.getService().getUrl(); } catch (e) {}
+  alert_('網頁應用程式網址', url
+    ? url + '\n\n（須以 /exec 結尾。若不是，請到「部署 → 管理部署作業」複製網址。）'
+    : '尚未部署。請到 Apps Script「部署 → 新增部署作業 → 網頁應用程式」。');
+}
 
 /* =========================================================
  * 第一次安裝：建立工作表、欄位、下拉選單與預設菜單
@@ -105,7 +157,8 @@ function doGet(e) {
   const action = (e && e.parameter && e.parameter.action) || 'menu';
   try {
     if (action === 'menu') return json_({ ok: true, menu: getMenu_(), settings: publicSettings_() });
-    if (action === 'ping') return json_({ ok: true, time: new Date().toISOString() });
+    if (action === 'ping') return json_({ ok: true, version: VERSION, time: new Date().toISOString() });
+    if (action === 'health') return json_(health_());
     return json_({ ok: false, error: 'UNKNOWN_ACTION' });
   } catch (err) {
     console.error(err);
@@ -125,6 +178,24 @@ function doPost(e) {
 
 function json_(obj) {
   return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(ContentService.MimeType.JSON);
+}
+
+/** 自我檢查：回傳問題清單（網站與選單共用） */
+function health_() {
+  const ss = SpreadsheetApp.getActive();
+  const problems = [];
+  Object.keys(SHEET).forEach(k => { if (!ss.getSheetByName(SHEET[k])) problems.push('缺少工作表「' + SHEET[k] + '」，請先執行「① 初始化」。'); });
+  let products = 0, settings = null;
+  try { products = getMenu_().length; settings = getSettings_(); } catch (e) { problems.push('讀取資料失敗：' + e.message); }
+  if (settings) {
+    if (!products) problems.push('「商品」沒有任何上架的商品。');
+    if (!settings.storeEmail) problems.push('「設定」的「店家通知信箱」是空的，新訂單不會通知店家。');
+    if (!settings.stores.length) problems.push('「設定」的「門市清單」是空的，顧客無法選擇取餐門市。');
+  }
+  return {
+    ok: problems.length === 0, version: VERSION, problems: problems, products: products,
+    storeEmail: settings ? (settings.storeEmail || '（未填）') : '', open: settings ? settings.open : null
+  };
 }
 
 /* =========================================================
@@ -379,4 +450,5 @@ function testOrder() {
     clientTotal: menu[0].price * 2
   });
   console.log(JSON.stringify(res));
+  return res;
 }
