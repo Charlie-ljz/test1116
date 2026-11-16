@@ -470,7 +470,9 @@
         animation-duration: .01ms !important;
         transition-duration: .01ms !important;
       }
-      .crowd { display: none; }
+      /* 路人動畫為主頁視覺特色，減少動態模式下仍保留（速度放慢） */
+      .walker { animation-duration: calc(var(--dur) * 1.6) !important; }
+      .walker svg, .walker .leg-a, .walker .leg-b { animation-duration: 1.1s !important; }
     }
   </style>
 </head>
