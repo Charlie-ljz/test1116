@@ -1,0 +1,18 @@
+{
+  "name": "金禾 GRAIN & GOLD｜職人鍋貼專賣",
+  "short_name": "金禾鍋貼",
+  "description": "金禾職人鍋貼，堅持新鮮食材與現點現煎。",
+  "lang": "zh-Hant",
+  "start_url": "./",
+  "scope": "./",
+  "id": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#38291f",
+  "theme_color": "#38291f",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
