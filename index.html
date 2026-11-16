@@ -433,12 +433,44 @@
       .modal-panel { padding: 22px; }
     }
 
+
+    /* ---- 人來人往動畫 ---- */
+    .crowd {
+      position: absolute;
+      left: 0; right: 0; bottom: 0;
+      height: 190px;
+      z-index: 1;
+      overflow: hidden;
+      pointer-events: none;
+      background: linear-gradient(to top, rgba(20,13,8,.55), transparent);
+    }
+    .walker {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      will-change: transform;
+      animation: walk-right var(--dur) linear var(--delay) infinite backwards;
+    }
+    .walker.left { animation-name: walk-left; }
+    .walker svg { display: block; width: 100%; height: auto; animation: bob .55s ease-in-out infinite; }
+    .walker .leg-a { transform-origin: 50% 0; animation: step .55s ease-in-out infinite; }
+    .walker .leg-b { transform-origin: 50% 0; animation: step .55s ease-in-out infinite reverse; }
+    .walker.left svg { transform: scaleX(-1); }
+    @keyframes walk-right { from { transform: translateX(-120px); } to { transform: translateX(calc(100vw + 120px)); } }
+    @keyframes walk-left  { from { transform: translateX(calc(100vw + 120px)); } to { transform: translateX(-120px); } }
+    @keyframes bob  { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-3px); } }
+    .walker.left svg { animation-name: bob-flip; }
+    @keyframes bob-flip { 0%,100% { transform: scaleX(-1) translateY(0); } 50% { transform: scaleX(-1) translateY(-3px); } }
+    @keyframes step { 0%,100% { transform: rotate(-22deg); } 50% { transform: rotate(22deg); } }
+    @media(max-width: 640px) { .crowd { height: 130px; } }
+
     @media(prefers-reduced-motion: reduce) {
       html { scroll-behavior: auto; }
       *, *::before, *::after {
         animation-duration: .01ms !important;
         transition-duration: .01ms !important;
       }
+      .crowd { display: none; }
     }
   </style>
 </head>
@@ -520,6 +552,9 @@
         fetchpriority="high">
 
       <div class="hero-overlay"></div>
+
+      <!-- 人來人往 -->
+      <div class="crowd" id="crowd" aria-hidden="true"></div>
 
       <div class="container-custom hero-content">
         <div class="max-w-[740px]">
@@ -1815,6 +1850,38 @@
     }
 
     window.addEventListener("load", refreshIcons);
+  </script>
+  <script>
+    // 人來人往動畫：隨機產生路人剪影，左右來回走動
+    (function () {
+      const box = document.getElementById('crowd');
+      if (!box) return;
+      const colors = ['#1b130d', '#2a1c12', '#3a281a', '#4a3322'];
+      const person = (c, bag) => `
+        <svg viewBox="0 0 40 100" xmlns="http://www.w3.org/2000/svg">
+          <g fill="${c}">
+            <circle cx="20" cy="10" r="8"/>
+            <path d="M10 22h20l3 34H7z"/>
+            ${bag ? '<rect x="28" y="40" width="9" height="12" rx="2"/>' : ''}
+            <rect class="leg-a" x="12" y="54" width="7" height="44" rx="3"/>
+            <rect class="leg-b" x="21" y="54" width="7" height="44" rx="3"/>
+          </g>
+        </svg>`;
+      const count = window.innerWidth < 640 ? 7 : 13;
+      for (let i = 0; i < count; i++) {
+        const el = document.createElement('div');
+        const size = 34 + Math.random() * 44;           // 遠近不同大小
+        const dur = 14 + (90 - size) * 0.35 + Math.random() * 8; // 越小越慢
+        el.className = 'walker' + (Math.random() < 0.5 ? ' left' : '');
+        el.style.width = size + 'px';
+        el.style.bottom = (Math.random() * 18) + 'px';
+        el.style.opacity = (0.55 + (size - 34) / 44 * 0.4).toFixed(2);
+        el.style.setProperty('--dur', dur.toFixed(1) + 's');
+        el.style.setProperty('--delay', (-Math.random() * dur).toFixed(1) + 's');
+        el.innerHTML = person(colors[i % colors.length], Math.random() < 0.4);
+        box.appendChild(el);
+      }
+    })();
   </script>
 </body>
 </html>
