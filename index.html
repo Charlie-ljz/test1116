@@ -900,7 +900,7 @@
               <i data-lucide="chevron-down" class="faq-chevron w-5 h-5 shrink-0 text-orange"></i>
             </button>
             <div class="faq-answer">
-              <p class="text-sm text-muted leading-8 pb-6">
+              <p id="faqHow" class="text-sm text-muted leading-8 pb-6">
                 選擇喜歡的餐點並加入購物車，確認數量後點擊前往結帳，
                 填寫聯絡資料與取餐方式即可完成示範流程。
                 本網站為展示版本，不會實際送出訂單。
@@ -944,7 +944,7 @@
               <i data-lucide="chevron-down" class="faq-chevron w-5 h-5 shrink-0 text-orange"></i>
             </button>
             <div class="faq-answer">
-              <p class="text-sm text-muted leading-8 pb-6">
+              <p id="faqMixed" class="text-sm text-muted leading-8 pb-6">
                 可以同時加入購物車。示範結帳會依商品種類限制取餐方式：
                 現做餐點可選內用或外帶，冷凍禮盒可選外帶或宅配；
                 混合訂單僅提供外帶。實際營運可再拆分配送與取餐訂單。
@@ -1183,16 +1183,23 @@
             <p class="text-sm font-semibold mb-3">訂單摘要</p>
             <div id="checkoutSummary" class="space-y-2 text-xs text-muted"></div>
             <div class="flex justify-between mt-4 pt-3 border-t border-line">
-              <span class="text-sm font-semibold">應付金額（模擬）</span>
+              <span id="checkoutTotalLabel" class="text-sm font-semibold">應付金額（模擬）</span>
               <span id="checkoutTotal" class="font-bold text-lg text-orange"></span>
             </div>
           </div>
 
-          <p class="text-[11px] text-muted mb-5 leading-6">
+          <p id="checkoutNotice" class="text-[11px] text-muted mb-5 leading-6">
             本站不會將表單資料傳送至伺服器。提交後僅顯示本機模擬成功畫面。
           </p>
 
-          <button type="submit" class="btn-primary w-full">確認建立示範訂單</button>
+          <!-- 防機器人欄位：真人看不到，請勿填寫 -->
+          <div style="position:absolute;left:-9999px;top:auto;width:1px;height:1px;overflow:hidden" aria-hidden="true">
+            <label>網站 <input type="text" name="website" tabindex="-1" autocomplete="off"></label>
+          </div>
+
+          <p id="checkoutError" class="hidden text-xs text-red-600 mb-4 leading-6" role="alert"></p>
+
+          <button id="checkoutSubmit" type="submit" class="btn-primary w-full">確認建立示範訂單</button>
         </form>
       </div>
 
@@ -1202,11 +1209,11 @@
         </div>
         <p class="eyebrow mb-3">ORDER CONFIRMED</p>
         <h2 class="display text-3xl font-semibold mb-4">訂單已建立！</h2>
-        <p class="text-sm text-muted leading-8 mb-3">
+        <p id="successNote" class="text-sm text-muted leading-8 mb-3">
           感謝您的選購，這是一筆模擬訂單。
         </p>
         <p id="successOrderNumber" class="text-sm font-semibold mb-3"></p>
-        <p class="text-xs text-muted mb-8">
+        <p id="successFinePrint" class="text-xs text-muted mb-8">
           不會實際備餐、宅配、付款或寄送通知。
         </p>
         <button type="button" onclick="closeCheckout()" class="btn-primary w-full">
@@ -1226,7 +1233,7 @@
           <i data-lucide="x" class="w-6 h-6"></i>
         </button>
       </div>
-      <div class="text-sm text-muted leading-8 space-y-4">
+      <div id="policyBody" class="text-sm text-muted leading-8 space-y-4">
         <p>本網站為品牌官網設計示範，不提供真實交易或電子報服務。</p>
         <p>購物車資料僅保存在目前瀏覽器的記憶體中，重新整理後即會清空。</p>
         <p>結帳資料不會傳送至任何後端系統，提交時僅用於顯示本機模擬成功畫面。</p>
@@ -1383,6 +1390,16 @@
       }
     ];
 
+    // ================= Google Sheet 串接設定 =================
+    // 部署 Apps Script（見 gas/README.md）後，把「網頁應用程式網址」貼在下方引號內。
+    // 留空 = 示範模式：使用內建菜單，結帳只顯示本機模擬畫面。
+    const GAS_URL = "https://script.google.com/macros/s/AKfycbwIsmvI--cU5ipo3-fLOwVRrRvbcG4jzfKXfDhfOQjUuqUmqMQYG9oVmnc0FA_3_EQE/exec";
+    const LIVE = Boolean(GAS_URL);
+    const MENU_CACHE_KEY = "jinhe-menu-v1";
+    let shopOpen = true;
+    let submitting = false;
+    let pendingRequestId = null;
+
     const cart = new Map();
     const currency = amount => "NT$ " + amount.toLocaleString("zh-TW");
 
@@ -1415,6 +1432,71 @@
       toastTimer = setTimeout(() => toast.classList.remove("show"), 2800);
     }
 
+    // ================= 與 Google Sheet 同步 =================
+    function fetchWithTimeout(url, options, ms) {
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), ms);
+      return fetch(url, Object.assign({}, options, { signal: ctrl.signal }))
+        .finally(() => clearTimeout(timer));
+    }
+
+    function applyMenu(menu, settings) {
+      products.splice(0, products.length, ...menu);
+      [...cart.keys()].forEach(id => { if (!products.some(p => p.id === id)) cart.delete(id); });
+
+      if (settings) {
+        shopOpen = settings.open !== false;
+        if (Array.isArray(settings.stores) && settings.stores.length) {
+          $("pickupStore").innerHTML = settings.stores
+            .map(name => `<option value="${escapeHTML(name)}">${escapeHTML(name)}</option>`).join("");
+        }
+        window.__deliveryFee = Number(settings.deliveryFee);
+      }
+      renderProducts();
+      updateCartUI();
+    }
+
+    async function loadMenu() {
+      if (!LIVE) return;
+      try {
+        const cached = JSON.parse(localStorage.getItem(MENU_CACHE_KEY) || "null");
+        if (cached && Array.isArray(cached.menu) && cached.menu.length) applyMenu(cached.menu, cached.settings);
+      } catch (e) { /* 沒有快取就略過 */ }
+
+      try {
+        const res = await fetchWithTimeout(GAS_URL + "?action=menu", {}, 12000);
+        const data = await res.json();
+        if (data && data.ok && Array.isArray(data.menu) && data.menu.length) {
+          applyMenu(data.menu, data.settings);
+          try { localStorage.setItem(MENU_CACHE_KEY, JSON.stringify({ menu: data.menu, settings: data.settings })); } catch (e) {}
+        }
+      } catch (e) {
+        console.warn("菜單同步失敗，使用內建／快取菜單", e);
+      }
+    }
+
+    // 串接後把「示範」文案換成真實接單說明
+    function applyOrderMode() {
+      if (!LIVE) return;
+      $("checkoutSubmit").textContent = "送出訂單";
+      $("checkoutTotalLabel").textContent = "應付金額";
+      $("checkoutNotice").textContent =
+        "送出後訂單會直接傳送給店家。本站不線上收款：內用、外帶於到店取餐時付款，宅配為貨到付款。";
+      $("successNote").textContent = "感謝您的訂購！我們已收到您的訂單。";
+      $("successFinePrint").textContent = "請保留訂單編號，取餐或聯絡店家時請告知店員。";
+      $("faqHow").textContent =
+        "選擇喜歡的餐點並加入購物車，確認數量後點擊前往結帳，填寫聯絡資料與取餐方式並送出訂單即可。付款於到店取餐時完成，宅配為貨到付款。";
+      $("faqMixed").textContent =
+        "可以同時加入購物車。結帳會依商品種類限制取餐方式：現做餐點可選內用或外帶，冷凍禮盒可選外帶或宅配；混合訂單僅提供外帶。";
+      $("policyTitle").textContent = "隱私權政策";
+      $("policyBody").innerHTML = `
+        <p>為了處理您的線上訂單，我們會蒐集您填寫的姓名、聯絡電話、電子郵件（選填）、宅配地址（宅配時）與備註。</p>
+        <p>這些資料僅用於確認訂單、備餐、配送與聯絡您，並儲存在店家的 Google 試算表中；若您填寫電子郵件，我們會寄送訂單確認信。</p>
+        <p>本站不收取信用卡或任何付款資料。購物車內容只保存在目前瀏覽器；菜單會暫存於瀏覽器以加快載入。</p>
+        <p>網站使用 Google Apps Script／Google 試算表、Google Fonts、第三方 CDN、Unsplash 圖片及 Google Maps 嵌入內容，這些服務可能依其政策處理連線資訊。</p>
+        <p>如需查詢、更正或刪除您的訂單資料，請與店家聯絡。</p>`;
+    }
+
     // ================= 菜單分類 =================
     function setCategory(category) {
       activeCategory = category;
@@ -1437,7 +1519,7 @@
             <img src="${p.image}" alt="${escapeHTML(p.name)}示意照片"
               loading="lazy" class="image-cover"
               onerror="this.style.opacity='.2'">
-            <span class="absolute top-3 left-3 tag">${escapeHTML(p.tag)}</span>
+            <span class="absolute top-3 left-3 tag">${escapeHTML(p.soldOut ? "售完" : p.tag)}</span>
           </div>
           <div class="p-4 sm:p-5">
             <p class="text-[10px] text-muted mb-2">${escapeHTML(p.unit)}</p>
@@ -1446,8 +1528,9 @@
             <div class="flex flex-wrap justify-between items-center gap-2 mt-5">
               <span class="display text-lg sm:text-xl font-bold">${currency(p.price)}</span>
               <button type="button" onclick="addToCart('${p.id}')"
+                ${p.soldOut ? "disabled" : ""}
                 aria-label="加入購物車：${escapeHTML(p.name)}"
-                class="w-9 h-9 bg-wood text-white rounded-full flex items-center justify-center hover:bg-orange transition">
+                class="w-9 h-9 bg-wood text-white rounded-full flex items-center justify-center hover:bg-orange transition ${p.soldOut ? "opacity-30 cursor-not-allowed" : ""}">
                 <i data-lucide="plus" class="w-4 h-4"></i>
               </button>
             </div>
@@ -1462,6 +1545,7 @@
     function addToCart(id) {
       const product = products.find(p => p.id === id);
       if (!product) return;
+      if (product.soldOut) { showToast("「" + product.name + "」目前已售完"); return; }
 
       const current = cart.get(id) || 0;
       cart.set(id, current + 1);
@@ -1635,7 +1719,8 @@
 
     function getDeliveryFee() {
       const selected = document.querySelector('input[name="fulfillment"]:checked');
-      return selected && selected.value === "delivery" ? 120 : 0;
+      const fee = Number.isFinite(window.__deliveryFee) ? window.__deliveryFee : 120;
+      return selected && selected.value === "delivery" ? fee : 0;
     }
 
     function renderCheckoutSummary() {
@@ -1659,6 +1744,9 @@
 
     function openCheckout() {
       if (cart.size === 0) return;
+      if (LIVE && !shopOpen) { showToast("目前暫停接單，請稍後再試。"); return; }
+      pendingRequestId = null;
+      $("checkoutError").classList.add("hidden");
 
       closeCart();
       lastFocusedElement = document.activeElement;
@@ -1684,25 +1772,99 @@
       }
     }
 
-    function submitCheckout(event) {
-      event.preventDefault();
-      if (cart.size === 0) return;
+    function showCheckoutError(message) {
+      const el = $("checkoutError");
+      el.textContent = message;
+      el.classList.remove("hidden");
+    }
 
-      const form = $("checkoutForm");
-      if (!form.reportValidity()) return;
-
-      const number = "DEMO-" + Date.now().toString().slice(-8);
-      $("successOrderNumber").textContent = "示範訂單編號：" + number;
+    function showOrderSuccess(numberText, noteText) {
+      $("successOrderNumber").textContent = numberText;
+      if (noteText) $("successNote").textContent = noteText;
 
       cart.clear();
       updateCartUI();
 
-      form.reset();
+      $("checkoutForm").reset();
       $("checkoutFormView").classList.add("hidden");
       $("checkoutSuccessView").classList.remove("hidden");
 
       $("checkoutModal").querySelector(".modal-panel").scrollTop = 0;
       refreshIcons();
+    }
+
+    async function submitCheckout(event) {
+      event.preventDefault();
+      if (cart.size === 0 || submitting) return;
+
+      const form = $("checkoutForm");
+      if (!form.reportValidity()) return;
+
+      // 示範模式：尚未設定 GAS_URL
+      if (!LIVE) {
+        showOrderSuccess("示範訂單編號：DEMO-" + Date.now().toString().slice(-8));
+        return;
+      }
+
+      submitting = true;
+      const button = $("checkoutSubmit");
+      const label = button.textContent;
+      button.disabled = true;
+      button.textContent = "送出中，請稍候…";
+      $("checkoutError").classList.add("hidden");
+
+      if (!pendingRequestId) {
+        pendingRequestId = (window.crypto && crypto.randomUUID)
+          ? crypto.randomUUID()
+          : String(Date.now()) + Math.random().toString(16).slice(2);
+      }
+
+      const selected = document.querySelector('input[name="fulfillment"]:checked');
+      const payload = {
+        requestId: pendingRequestId,
+        items: [...cart.entries()].map(([id, qty]) => ({ id, qty })),
+        fulfillment: selected ? selected.value : "",
+        store: $("pickupStore").value,
+        name: $("customerName").value,
+        phone: $("customerPhone").value,
+        email: $("customerEmail").value,
+        address: $("deliveryAddress").value,
+        note: $("orderNote").value,
+        website: form.elements.website ? form.elements.website.value : "",
+        clientTotal: getCartSubtotal() + getDeliveryFee()
+      };
+
+      try {
+        // 用 text/plain 送 JSON，避免瀏覽器先送 CORS 預檢（Apps Script 不支援 OPTIONS）
+        const res = await fetchWithTimeout(GAS_URL, {
+          method: "POST",
+          headers: { "Content-Type": "text/plain;charset=utf-8" },
+          body: JSON.stringify(payload)
+        }, 40000);
+        const data = await res.json();
+
+        if (data && data.ok) {
+          pendingRequestId = null;
+          const mail = data.emailed ? "確認信已寄至您填寫的電子郵件。" : "";
+          showOrderSuccess(
+            "訂單編號：" + data.orderNumber,
+            "感謝您的訂購！我們已收到您的訂單，應付 " + currency(data.total) + "（" + data.payment + "）。" + mail
+          );
+        } else {
+          showCheckoutError((data && data.message) || "送出失敗，請稍後再試。");
+          if (data && data.menuChanged) {
+            await loadMenu();
+            updateFulfillmentOptions();
+          }
+        }
+      } catch (err) {
+        console.warn(err);
+        showCheckoutError("網路連線異常或系統忙碌，請稍後再按一次「送出訂單」（不會重複下單）。");
+      } finally {
+        submitting = false;
+        button.disabled = false;
+        button.textContent = label;
+      }
     }
 
     // ================= 門市 =================
@@ -1847,10 +2009,12 @@
     function init() {
       $("copyrightYear").textContent = new Date().getFullYear();
 
+      applyOrderMode();
       renderProducts();
       updateCartUI();
       selectStore(0);
       refreshIcons();
+      loadMenu();
     }
 
     if (document.readyState === "loading") {
