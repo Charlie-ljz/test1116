@@ -1,6 +1,6 @@
 // 金禾鍋貼 PWA Service Worker
 // 策略：頁面「網路優先、離線退回快取」；其他資源「先用快取、背景更新」。
-const VERSION = 'v2';
+const VERSION = 'v3';
 const CACHE = 'jinhe-' + VERSION;
 const SHELL = [
   './',
@@ -28,6 +28,10 @@ self.addEventListener('activate', (e) => {
 self.addEventListener('fetch', (e) => {
   const req = e.request;
   if (req.method !== 'GET' || !req.url.startsWith('http')) return;
+
+  // Google Apps Script（菜單／訂單）一律走網路，不快取
+  const host = new URL(req.url).hostname;
+  if (host === 'script.google.com' || host.endsWith('.googleusercontent.com') || host.endsWith('.google.com')) return;
 
   // 頁面導覽：網路優先
   if (req.mode === 'navigate') {
