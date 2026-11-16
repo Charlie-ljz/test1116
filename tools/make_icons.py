@@ -41,8 +41,9 @@ def photo_subject(path):
     im = Image.open(path).convert('RGB')
     w, h = im.size
     m = min(w, h)
+    m = int(m * 0.86)                       # 再往中心放大，鍋貼更突出
     im = im.crop(((w - m) // 2, (h - m) // 2, (w + m) // 2, (h + m) // 2))
-    d = int(S * 0.66)
+    d = int(S * 0.72)
     im = im.resize((d, d), Image.LANCZOS)
     mask = Image.new('L', (d, d), 0)
     ImageDraw.Draw(mask).ellipse((0, 0, d - 1, d - 1), fill=255)
@@ -135,7 +136,14 @@ def drawn_subject():
     return img, mask
 
 
-def compose(subject, mask, safe=0.84):
+def compose(subject, mask, safe=1.0):
+    if safe < 1:                              # maskable：只縮小主體，背景維持滿版
+        k = int(S * safe)
+        sub2 = Image.new('RGB', (S, S), BG); m2 = Image.new('L', (S, S), 0)
+        off = ((S - k) // 2, (S - k) // 2)
+        sub2.paste(subject.resize((k, k), Image.LANCZOS), off)
+        m2.paste(mask.resize((k, k), Image.LANCZOS), off)
+        subject, mask = sub2, m2
     bg = radial(S, (96, 64, 38), (30, 20, 13)).convert('RGBA')
     # 外發光（寬 + 窄兩層）
     bg = Image.alpha_composite(bg, glow_layer(mask, GLOW, S * 0.07, 2.2))
@@ -146,13 +154,6 @@ def compose(subject, mask, safe=0.84):
     bg = Image.alpha_composite(bg, h)
     sub = subject.convert('RGBA'); sub.putalpha(mask)
     bg = Image.alpha_composite(bg, sub)
-    # 縮放到安全區
-    if safe < 1:
-        k = int(S * safe)
-        small = bg.resize((k, k), Image.LANCZOS)
-        out = Image.new('RGBA', (S, S), BG + (255,))
-        out.paste(small, ((S - k) // 2, (S - k) // 2))
-        return out
     return bg
 
 

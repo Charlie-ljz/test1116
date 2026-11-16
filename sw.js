@@ -1,6 +1,6 @@
 // 金禾鍋貼 PWA Service Worker
 // 策略：頁面「網路優先、離線退回快取」；其他資源「先用快取、背景更新」。
-const VERSION = 'v1';
+const VERSION = 'v2';
 const CACHE = 'jinhe-' + VERSION;
 const SHELL = [
   './',
