@@ -1,399 +1,1786 @@
+
 <!DOCTYPE html>
-<html lang="zh-TW">
+<html lang="zh-Hant">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>AI3 南港美食 3D 午餐選擇器</title>
-<style>
-  *{box-sizing:border-box;margin:0;padding:0}
-  html,body{width:100%;height:100%;overflow:hidden;font-family:"PingFang TC","Microsoft JhengHei","Noto Sans TC",system-ui,sans-serif;color:#f4f6ff;background:#0d1020}
-  #canvas-container{position:absolute;inset:0;background:radial-gradient(ellipse at 60% 40%,#2a2f66 0%,#14172f 55%,#0a0c18 100%)}
-  #canvas-container canvas{display:block;touch-action:none}
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#38291f">
+  <meta name="description" content="金禾職人鍋貼，堅持新鮮食材與現點現煎，讓每一口都充滿溫度。">
+  <title>金禾 GRAIN & GOLD｜職人鍋貼專賣</title>
 
-  header{position:absolute;top:0;left:0;right:0;height:56px;display:flex;align-items:center;padding:0 24px;z-index:5;
-    background:rgba(255,255,255,.06);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border-bottom:1px solid rgba(255,255,255,.12)}
-  header h1{font-size:18px;letter-spacing:.06em;font-weight:700}
-  header span{margin-left:12px;font-size:12px;opacity:.65}
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            cream: "#F8F5EE",
+            paper: "#FFFDF8",
+            wood: "#38291F",
+            muted: "#817367",
+            orange: "#C9783D",
+            lightorange: "#F5E5D5",
+            line: "#E9E1D6"
+          },
+          fontFamily: {
+            sans: ['Noto Sans TC', 'sans-serif'],
+            display: ['Noto Serif TC', 'serif']
+          }
+        }
+      }
+    };
+  </script>
 
-  #ui-container{position:absolute;top:72px;left:16px;width:300px;max-height:calc(100% - 88px);overflow:auto;z-index:5;padding:20px;border-radius:18px;
-    background:rgba(255,255,255,.09);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border:1px solid rgba(255,255,255,.18);box-shadow:0 12px 40px rgba(0,0,0,.35)}
-  .group{margin-bottom:18px}
-  .group h3{font-size:13px;letter-spacing:.08em;opacity:.7;margin-bottom:8px;font-weight:600}
-  label.opt{display:flex;align-items:center;gap:8px;padding:6px 10px;margin:4px 0;border-radius:10px;cursor:pointer;font-size:14px;background:rgba(255,255,255,.05);transition:background .15s}
-  label.opt:hover{background:rgba(255,255,255,.14)}
-  label.opt input{accent-color:#ffb347;width:16px;height:16px}
-  .cats{display:grid;grid-template-columns:1fr 1fr;gap:0 6px}
-  .hint{font-size:11px;opacity:.55;margin-top:4px}
-  #count{font-size:14px;margin:6px 0 12px;padding:8px 12px;border-radius:10px;background:rgba(0,0,0,.25);text-align:center}
-  #count b{color:#ffb347;font-size:20px}
-  #count.zero{color:#ff8b8b}
-  button{font-family:inherit;cursor:pointer;border:0}
-  #spin-btn{width:100%;padding:14px;border-radius:14px;font-size:16px;font-weight:700;color:#2b1a00;background:linear-gradient(135deg,#ffd36b,#ff9f43);box-shadow:0 6px 20px rgba(255,159,67,.45);transition:transform .15s,opacity .2s}
-  #spin-btn:hover:not(:disabled){transform:translateY(-2px)}
-  #spin-btn:disabled{opacity:.4;cursor:not-allowed;box-shadow:none}
+  <!-- Fonts & Icons -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;600;700&family=Noto+Serif+TC:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.min.js" defer></script>
 
-  #result-modal{position:absolute;inset:0;z-index:10;display:flex;align-items:center;justify-content:center;background:rgba(5,6,15,.55);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);transition:opacity .25s}
-  #result-modal.hidden{opacity:0;pointer-events:none}
-  .card{width:min(420px,90vw);padding:28px;border-radius:22px;text-align:center;background:rgba(30,34,70,.92);border:1px solid rgba(255,255,255,.2);box-shadow:0 20px 60px rgba(0,0,0,.5);transform:scale(1);transition:transform .25s}
-  #result-modal.hidden .card{transform:scale(.9)}
-  .card .tag-top{font-size:13px;opacity:.7;letter-spacing:.1em}
-  .card h2{font-size:30px;margin:8px 0 6px;color:#ffd36b}
-  .card .dist{font-size:15px;margin-bottom:12px}
-  .tags{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin-bottom:16px}
-  .tags span{font-size:12px;padding:4px 10px;border-radius:99px;background:rgba(255,255,255,.12)}
-  .sample{font-size:11px;opacity:.55;margin-bottom:14px}
-  .actions{display:flex;flex-direction:column;gap:10px}
-  .actions a,.actions button{display:block;padding:12px;border-radius:12px;font-size:15px;font-weight:600;text-decoration:none;color:#fff;background:rgba(255,255,255,.14);text-align:center}
-  .actions .primary{background:linear-gradient(135deg,#4facfe,#3b6bff)}
-  .actions a:hover,.actions button:hover{filter:brightness(1.2)}
+  <style>
+    :root {
+      --wood: #38291f;
+      --orange: #c9783d;
+      --cream: #f8f5ee;
+      --line: #e9e1d6;
+    }
 
-  @media (max-width:900px){
-    #ui-container{top:auto;bottom:12px;left:12px;right:12px;width:auto;max-height:46%;padding:14px}
-    header span{display:none}
-  }
-</style>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    * { box-sizing: border-box; }
+
+    html {
+      scroll-behavior: smooth;
+      scroll-padding-top: 85px;
+    }
+
+    body {
+      margin: 0;
+      color: var(--wood);
+      background: var(--cream);
+      font-family: 'Noto Sans TC', sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    body.locked { overflow: hidden; }
+
+    button, input, select, textarea {
+      font: inherit;
+    }
+
+    button { cursor: pointer; }
+    button:disabled { cursor: not-allowed; opacity: .45; }
+
+    :focus-visible {
+      outline: 2px solid var(--orange);
+      outline-offset: 3px;
+    }
+
+    .display { font-family: 'Noto Serif TC', serif; }
+    .container-custom {
+      width: min(100% - 40px, 1180px);
+      margin-inline: auto;
+    }
+
+    .section-pad { padding-block: 100px; }
+
+    .eyebrow {
+      color: var(--orange);
+      font-size: 11px;
+      letter-spacing: .26em;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+
+    .section-title {
+      font-family: 'Noto Serif TC', serif;
+      font-size: clamp(28px, 3.8vw, 43px);
+      font-weight: 600;
+      letter-spacing: .04em;
+      line-height: 1.5;
+    }
+
+    .btn-primary, .btn-outline, .btn-light {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      border-radius: 5px;
+      padding: 15px 27px;
+      font-size: 13px;
+      font-weight: 600;
+      transition: .25s ease;
+      text-decoration: none;
+    }
+
+    .btn-primary {
+      background: var(--orange);
+      color: white;
+      border: 1px solid var(--orange);
+    }
+
+    .btn-primary:hover {
+      background: #ad622f;
+      transform: translateY(-2px);
+    }
+
+    .btn-outline {
+      color: var(--wood);
+      border: 1px solid #cbbdad;
+    }
+
+    .btn-outline:hover { background: #eee5d8; }
+
+    .btn-light {
+      color: var(--wood);
+      background: white;
+      border: 1px solid white;
+    }
+
+    .btn-light:hover { background: #f1e8db; }
+
+    .nav-link {
+      font-size: 12px;
+      color: #62574d;
+      transition: color .2s;
+      white-space: nowrap;
+    }
+
+    .nav-link:hover { color: var(--orange); }
+
+    .hero {
+      position: relative;
+      min-height: 650px;
+      height: min(85vh, 790px);
+      display: flex;
+      align-items: center;
+      background: #33251b;
+      overflow: hidden;
+    }
+
+    .hero-image {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      object-position: center;
+    }
+
+    .hero-overlay {
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(
+        90deg,
+        rgba(27,19,13,.91) 0%,
+        rgba(27,19,13,.75) 43%,
+        rgba(27,19,13,.2) 100%
+      );
+    }
+
+    .hero-content {
+      position: relative;
+      z-index: 1;
+      color: white;
+      width: 100%;
+    }
+
+    .hero-title {
+      font-family: 'Noto Serif TC', serif;
+      font-size: clamp(38px, 5.4vw, 72px);
+      line-height: 1.5;
+      letter-spacing: .08em;
+      font-weight: 600;
+    }
+
+    .image-cover {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      transition: transform .65s ease;
+    }
+
+    .image-zoom:hover .image-cover {
+      transform: scale(1.055);
+    }
+
+    .product-card {
+      background: #fffdf8;
+      border: 1px solid #eee7dd;
+      border-radius: 9px;
+      overflow: hidden;
+      transition: box-shadow .25s, transform .25s;
+    }
+
+    .product-card:hover {
+      box-shadow: 0 16px 35px rgba(56,41,31,.08);
+      transform: translateY(-3px);
+    }
+
+    .product-image {
+      height: 225px;
+      overflow: hidden;
+      position: relative;
+      background: #e6ddd0;
+    }
+
+    .tag {
+      display: inline-block;
+      padding: 5px 10px;
+      background: #f5e5d5;
+      color: #a45b2b;
+      font-size: 10px;
+      border-radius: 3px;
+      font-weight: 600;
+    }
+
+    .tab-button {
+      padding: 12px 18px;
+      color: #827468;
+      border-bottom: 2px solid transparent;
+      font-size: 13px;
+      white-space: nowrap;
+      transition: .2s;
+    }
+
+    .tab-button.active {
+      color: var(--orange);
+      border-color: var(--orange);
+      font-weight: 700;
+    }
+
+    .tab-button:hover { color: var(--orange); }
+
+    .store-tab {
+      padding: 15px 20px;
+      border: 1px solid var(--line);
+      background: white;
+      border-radius: 5px;
+      text-align: left;
+      transition: .2s;
+    }
+
+    .store-tab.active {
+      border-color: var(--orange);
+      background: #f9efe5;
+    }
+
+    .faq-item {
+      border-bottom: 1px solid var(--line);
+    }
+
+    .faq-answer {
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height .3s ease;
+    }
+
+    .faq-item.open .faq-answer { max-height: 250px; }
+    .faq-item.open .faq-chevron { transform: rotate(180deg); }
+
+    .faq-chevron { transition: transform .3s; }
+
+    .drawer-backdrop {
+      position: fixed;
+      inset: 0;
+      z-index: 80;
+      background: rgba(25,19,14,.55);
+      opacity: 0;
+      visibility: hidden;
+      transition: .3s;
+    }
+
+    .drawer-backdrop.show {
+      opacity: 1;
+      visibility: visible;
+    }
+
+    .cart-drawer {
+      position: fixed;
+      right: 0;
+      top: 0;
+      bottom: 0;
+      width: min(100%, 460px);
+      z-index: 90;
+      background: #fffdf8;
+      transform: translateX(105%);
+      transition: transform .35s ease;
+      display: flex;
+      flex-direction: column;
+      box-shadow: -10px 0 35px rgba(0,0,0,.1);
+    }
+
+    .cart-drawer.open { transform: translateX(0); }
+
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      z-index: 100;
+      background: rgba(25,19,14,.68);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
+
+    .modal-backdrop.show { display: flex; }
+
+    .modal-panel {
+      width: min(100%, 520px);
+      max-height: 92vh;
+      overflow-y: auto;
+      background: #fffdf8;
+      border-radius: 10px;
+      padding: 30px;
+    }
+
+    .form-field {
+      width: 100%;
+      padding: 13px 14px;
+      background: white;
+      border: 1px solid #ddd3c6;
+      border-radius: 5px;
+      outline: none;
+      font-size: 14px;
+    }
+
+    .form-field:focus { border-color: var(--orange); }
+
+    .toast {
+      position: fixed;
+      bottom: 28px;
+      left: 50%;
+      transform: translate(-50%, 30px);
+      z-index: 150;
+      padding: 14px 23px;
+      background: var(--wood);
+      color: white;
+      font-size: 13px;
+      border-radius: 6px;
+      box-shadow: 0 12px 30px rgba(0,0,0,.2);
+      opacity: 0;
+      pointer-events: none;
+      transition: .3s;
+      max-width: calc(100vw - 32px);
+      text-align: center;
+    }
+
+    .toast.show {
+      opacity: 1;
+      transform: translate(-50%, 0);
+    }
+
+    .map-frame {
+      height: 340px;
+      background: #eee9df;
+      border-radius: 7px;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .map-frame iframe {
+      width: 100%;
+      height: 100%;
+      border: 0;
+      filter: saturate(.7);
+    }
+
+    .fade-in {
+      animation: fadeIn .35s ease both;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(9px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @media(max-width: 767px) {
+      .container-custom { width: min(100% - 32px, 1180px); }
+      .section-pad { padding-block: 65px; }
+      .hero { min-height: 600px; height: 78svh; }
+      .hero-overlay {
+        background: linear-gradient(
+          90deg,
+          rgba(27,19,13,.88),
+          rgba(27,19,13,.42)
+        );
+      }
+      .product-image { height: 180px; }
+      .modal-panel { padding: 22px; }
+    }
+
+    @media(prefers-reduced-motion: reduce) {
+      html { scroll-behavior: auto; }
+      *, *::before, *::after {
+        animation-duration: .01ms !important;
+        transition-duration: .01ms !important;
+      }
+    }
+  </style>
 </head>
+
 <body>
-  <div id="canvas-container"></div>
 
-  <header><h1>AI3 南港午餐 3D 決策器</h1><span>南港軟體園區・半徑 2 公里</span></header>
+  <!-- ================= HEADER ================= -->
+  <header id="siteHeader" class="sticky top-0 z-50 bg-paper/95 backdrop-blur-md border-b border-line">
+    <div class="container-custom h-[76px] flex items-center justify-between gap-4">
 
-  <div id="ui-container">
-    <div class="group">
-      <h3>距離</h3>
-      <label class="opt"><input type="radio" name="dist" value="500"> 500 公尺以內</label>
-      <label class="opt"><input type="radio" name="dist" value="1000"> 1 公里以內</label>
-      <label class="opt"><input type="radio" name="dist" value="2000" checked> 2 公里以內</label>
-    </div>
-    <div class="group">
-      <h3>環境</h3>
-      <label class="opt"><input type="checkbox" id="need-ac" checked> 必須有冷氣</label>
-    </div>
-    <div class="group">
-      <h3>種類</h3>
-      <div class="cats" id="cats"></div>
-      <div class="hint">全部取消勾選＝不限種類</div>
-    </div>
-    <div id="count">符合條件：<b id="count-num">0</b> 間</div>
-    <button id="spin-btn">🎯 決定吃什麼！</button>
-  </div>
+      <a href="#home" class="flex items-center gap-3 shrink-0" aria-label="金禾首頁">
+        <span class="w-10 h-10 rounded-full bg-wood text-white flex items-center justify-center">
+          <i data-lucide="wheat" class="w-5 h-5"></i>
+        </span>
+        <span class="flex flex-col">
+          <span class="display font-bold tracking-[.2em] text-[19px] leading-tight">金禾</span>
+          <span class="text-[8px] tracking-[.16em] text-muted">GRAIN & GOLD</span>
+        </span>
+      </a>
 
-  <div id="result-modal" class="hidden">
-    <div class="card">
-      <div class="tag-top">🎉 今天中午吃</div>
-      <h2 id="r-name"></h2>
-      <div class="dist" id="r-dist"></div>
-      <div class="tags" id="r-tags"></div>
-      <div class="sample" id="r-sample"></div>
-      <div class="actions">
-        <a class="primary" id="r-map" target="_blank" rel="noopener">📍 開啟 Google 地圖導航</a>
-        <button id="r-again">🔁 不滿意，再抽一次</button>
-        <button id="r-filter">⚙️ 重新篩選</button>
+      <nav class="hidden xl:flex items-center gap-7" aria-label="主要導覽">
+        <a class="nav-link" href="#story">品牌故事</a>
+        <a class="nav-link" href="#menu">熱門餐點</a>
+        <a class="nav-link" href="#menu">線上點餐</a>
+        <a class="nav-link" href="#gifts">冷凍禮盒</a>
+        <a class="nav-link" href="#locations">門市據點</a>
+        <a class="nav-link" href="#contact">聯絡我們</a>
+      </nav>
+
+      <div class="flex items-center gap-3 sm:gap-5">
+        <button type="button" onclick="openCart()" aria-label="開啟購物車"
+          class="relative p-2 hover:text-orange transition">
+          <i data-lucide="shopping-bag" class="w-[21px] h-[21px]"></i>
+          <span id="cartBadge" class="absolute -top-1 -right-1 bg-orange text-white rounded-full min-w-[18px] h-[18px] text-[10px] flex items-center justify-center px-1 hidden">0</span>
+        </button>
+
+        <a href="#menu" class="btn-primary !px-4 !py-2.5 hidden sm:inline-flex">
+          立即點餐
+          <i data-lucide="arrow-up-right" class="w-4 h-4"></i>
+        </a>
+
+        <button id="mobileMenuButton" type="button" aria-label="開啟選單"
+          aria-expanded="false" aria-controls="mobileNav"
+          onclick="toggleMobileMenu()"
+          class="xl:hidden p-2">
+          <i data-lucide="menu" class="w-6 h-6"></i>
+        </button>
+      </div>
+    </div>
+
+    <nav id="mobileNav" class="hidden xl:hidden bg-paper border-t border-line px-6 py-5" aria-label="行動版導覽">
+      <div class="flex flex-col gap-5 text-sm">
+        <a href="#story" onclick="closeMobileMenu()">品牌故事</a>
+        <a href="#menu" onclick="closeMobileMenu()">熱門餐點</a>
+        <a href="#menu" onclick="closeMobileMenu()">線上點餐</a>
+        <a href="#gifts" onclick="closeMobileMenu()">冷凍禮盒</a>
+        <a href="#locations" onclick="closeMobileMenu()">門市據點</a>
+        <a href="#contact" onclick="closeMobileMenu()">聯絡我們</a>
+      </div>
+    </nav>
+  </header>
+
+  <main>
+
+    <!-- ================= HERO ================= -->
+    <section id="home" class="hero">
+      <img class="hero-image"
+        src="https://images.unsplash.com/photo-1563245372-f21724e3856d?auto=format&fit=crop&w=2000&q=85"
+        alt="熱騰騰的亞洲手工餃子美食"
+        fetchpriority="high">
+
+      <div class="hero-overlay"></div>
+
+      <div class="container-custom hero-content">
+        <div class="max-w-[740px]">
+          <div class="flex items-center gap-3 mb-8">
+            <span class="h-px w-9 bg-[#e5b58a]"></span>
+            <span class="text-[11px] tracking-[.3em] text-[#f0d5bd]">
+              THE ART OF GOLDEN CRUST
+            </span>
+          </div>
+
+          <h1 class="hero-title">
+            一口金黃，<br>
+            <span class="text-[#e9ad78]">一份真心。</span>
+          </h1>
+
+          <p class="text-white/80 text-sm md:text-base leading-[2.2] mt-7 max-w-[490px]">
+            從麵皮的溫度，到鍋底的金黃。<br>
+            用每一天的細心，成就每一口的幸福滋味。
+          </p>
+
+          <div class="flex flex-wrap gap-3 mt-10">
+            <a href="#menu" class="btn-primary">
+              線上點餐
+              <i data-lucide="arrow-right" class="w-4 h-4"></i>
+            </a>
+            <a href="#locations" class="inline-flex items-center gap-2 border border-white/60 text-white px-7 py-4 text-[13px] rounded-[5px] hover:bg-white/10 transition">
+              探索門市
+              <i data-lucide="map-pin" class="w-4 h-4"></i>
+            </a>
+          </div>
+        </div>
+      </div>
+
+      <div class="absolute bottom-7 right-6 md:right-14 text-white/70 text-[10px] tracking-[.2em] hidden sm:block">
+        HANDCRAFTED WITH HEART · TAIWAN
+      </div>
+    </section>
+
+    <!-- ================= BRAND VALUES ================= -->
+    <section class="bg-wood text-white py-8">
+      <div class="container-custom grid grid-cols-1 md:grid-cols-3 gap-7 md:gap-5">
+        <div class="flex items-center gap-4">
+          <i data-lucide="leaf" class="w-7 h-7 text-[#e9b78c] shrink-0"></i>
+          <div>
+            <h3 class="text-sm font-semibold tracking-wider">嚴選台灣在地食材</h3>
+            <p class="text-xs text-white/55 mt-1">從產地到餐桌的安心承諾</p>
+          </div>
+        </div>
+        <div class="flex items-center gap-4">
+          <i data-lucide="chef-hat" class="w-7 h-7 text-[#e9b78c] shrink-0"></i>
+          <div>
+            <h3 class="text-sm font-semibold tracking-wider">每日新鮮手工包製</h3>
+            <p class="text-xs text-white/55 mt-1">每一顆都是職人的細心</p>
+          </div>
+        </div>
+        <div class="flex items-center gap-4">
+          <i data-lucide="flame" class="w-7 h-7 text-[#e9b78c] shrink-0"></i>
+          <div>
+            <h3 class="text-sm font-semibold tracking-wider">現點現煎的金黃酥脆</h3>
+            <p class="text-xs text-white/55 mt-1">剛剛好的火候與溫度</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= STORY ================= -->
+    <section id="story" class="section-pad">
+      <div class="container-custom grid lg:grid-cols-2 gap-12 lg:gap-20 items-center">
+
+        <div class="relative">
+          <div class="aspect-[4/5] overflow-hidden rounded-[7px] image-zoom">
+            <img class="image-cover"
+              src="https://images.unsplash.com/photo-1552566626-52f8b828add9?auto=format&fit=crop&w=1100&q=85"
+              alt="溫暖舒適的餐廳內部空間"
+              loading="lazy">
+          </div>
+          <div class="absolute -bottom-5 -right-3 sm:-right-6 bg-orange text-white p-6 sm:p-8 rounded-[5px]">
+            <p class="display text-3xl font-bold">一份堅持</p>
+            <p class="text-xs tracking-widest mt-2">從第一顆開始</p>
+          </div>
+        </div>
+
+        <div class="lg:pl-4 pt-7 lg:pt-0">
+          <p class="eyebrow mb-5">OUR STORY · 品牌故事</p>
+          <h2 class="section-title">
+            好吃的秘密，<br>
+            藏在每一個小細節裡。
+          </h2>
+
+          <div class="w-12 h-[2px] bg-orange my-8"></div>
+
+          <p class="text-muted text-sm leading-[2.3] mb-5">
+            我們相信，真正令人想念的味道，不需要複雜的裝飾。
+            一張柔韌的麵皮、一份新鮮的餡料，加上恰到好處的火候，
+            就能創造讓人記住的日常美味。
+          </p>
+
+          <p class="text-muted text-sm leading-[2.3] mb-9">
+            金禾從一個簡單的想法出發：讓每個人都能在忙碌的生活裡，
+            吃上一份熱騰騰、用心製作的鍋貼。
+            這不只是一頓飯，更是一份溫暖的陪伴。
+          </p>
+
+          <div class="grid grid-cols-3 border-t border-line pt-7 gap-3">
+            <div>
+              <p class="display text-2xl sm:text-3xl font-semibold text-orange">10,000+</p>
+              <p class="text-[11px] text-muted mt-2">每日鍋貼示範銷量</p>
+            </div>
+            <div>
+              <p class="display text-2xl sm:text-3xl font-semibold text-orange">100%</p>
+              <p class="text-[11px] text-muted mt-2">現點現煎理念</p>
+            </div>
+            <div>
+              <p class="display text-2xl sm:text-3xl font-semibold text-orange">30年</p>
+              <p class="text-[11px] text-muted mt-2">示範工藝傳承</p>
+            </div>
+          </div>
+          <p class="text-[10px] text-muted mt-5">※ 以上數據為品牌網站設計示範，非實際營運統計。</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= MENU ================= -->
+    <section id="menu" class="section-pad bg-[#F0EBE2]">
+      <div class="container-custom">
+
+        <div class="text-center max-w-2xl mx-auto mb-10">
+          <p class="eyebrow mb-4">OUR SIGNATURE MENU</p>
+          <h2 class="section-title">每一口，都是好味道。</h2>
+          <p class="text-muted text-sm mt-5 leading-8">
+            從經典鍋貼到暖心湯品，挑選今天想吃的美好滋味。
+          </p>
+        </div>
+
+        <div class="flex justify-center mb-10">
+          <div id="menuTabs" role="tablist" aria-label="菜單分類"
+            class="flex overflow-x-auto max-w-full border-b border-[#d8cfc2]">
+            <button type="button" class="tab-button active" role="tab" aria-selected="true" data-category="potsticker" onclick="setCategory('potsticker')">招牌鍋貼</button>
+            <button type="button" class="tab-button" role="tab" aria-selected="false" data-category="dumpling" onclick="setCategory('dumpling')">精選水餃</button>
+            <button type="button" class="tab-button" role="tab" aria-selected="false" data-category="soup" onclick="setCategory('soup')">湯品／飲料</button>
+            <button type="button" class="tab-button" role="tab" aria-selected="false" data-category="side" onclick="setCategory('side')">經典小菜</button>
+          </div>
+        </div>
+
+        <div id="productGrid" class="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6" aria-live="polite"></div>
+
+        <div class="text-center mt-12">
+          <p class="text-xs text-muted mb-5">所有價格均為網站示範售價，實際以門市公告為準。</p>
+          <button type="button" onclick="openCart()" class="btn-outline">
+            查看我的購物車
+            <i data-lucide="shopping-bag" class="w-4 h-4"></i>
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= GIFT BOXES ================= -->
+    <section id="gifts" class="section-pad bg-paper">
+      <div class="container-custom grid lg:grid-cols-2 gap-12 lg:gap-20 items-center">
+
+        <div class="order-2 lg:order-1">
+          <p class="eyebrow mb-5">A LITTLE GIFT OF WARMTH</p>
+          <h2 class="section-title">
+            把金黃的幸福，<br>
+            帶回家。
+          </h2>
+
+          <p class="text-muted text-sm leading-[2.3] mt-7 mb-8">
+            無論是家人團聚、節慶送禮，還是忙碌日常裡的一頓晚餐，
+            金禾冷凍鍋貼禮盒，讓好味道隨時陪伴。
+          </p>
+
+          <div class="space-y-5 mb-9">
+            <div class="flex gap-4 items-start">
+              <span class="bg-lightorange rounded-full p-3 text-orange">
+                <i data-lucide="snowflake" class="w-5 h-5"></i>
+              </span>
+              <div>
+                <h3 class="text-sm font-semibold">急速冷凍保鮮</h3>
+                <p class="text-xs text-muted leading-7 mt-1">示範採用液態氮急凍工藝，鎖住新鮮滋味。</p>
+              </div>
+            </div>
+            <div class="flex gap-4 items-start">
+              <span class="bg-lightorange rounded-full p-3 text-orange">
+                <i data-lucide="clock-3" class="w-5 h-5"></i>
+              </span>
+              <div>
+                <h3 class="text-sm font-semibold">約 8 分鐘，輕鬆上桌</h3>
+                <p class="text-xs text-muted leading-7 mt-1">依包裝烹調指示操作，輕鬆享用酥脆鍋貼。</p>
+              </div>
+            </div>
+            <div class="flex gap-4 items-start">
+              <span class="bg-lightorange rounded-full p-3 text-orange">
+                <i data-lucide="gift" class="w-5 h-5"></i>
+              </span>
+              <div>
+                <h3 class="text-sm font-semibold">溫暖質感禮盒</h3>
+                <p class="text-xs text-muted leading-7 mt-1">簡約包裝設計，分享一份有溫度的心意。</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="flex flex-wrap items-center gap-5">
+            <div>
+              <span class="text-xs text-muted">招牌招財鍋貼禮盒・50 入</span>
+              <p class="display text-3xl font-bold mt-1">NT$ 499</p>
+            </div>
+            <button type="button" onclick="addToCart('gift50')" class="btn-primary">
+              加入購物車
+              <i data-lucide="plus" class="w-4 h-4"></i>
+            </button>
+          </div>
+        </div>
+
+        <div class="order-1 lg:order-2 relative">
+          <div class="aspect-[5/5] overflow-hidden rounded-[7px] image-zoom">
+            <img class="image-cover"
+              src="https://images.unsplash.com/photo-1563245372-f21724e3856d?auto=format&fit=crop&w=1100&q=85"
+              alt="冷凍鍋貼禮盒示意使用的手工餃子照片"
+              loading="lazy">
+          </div>
+          <div class="absolute top-5 left-5 bg-paper/95 px-5 py-3 rounded">
+            <p class="text-[10px] tracking-[.2em] text-muted">GIFT COLLECTION</p>
+            <p class="display text-lg mt-1">金禾・好食禮</p>
+          </div>
+          <p class="text-[10px] text-muted mt-3">※ 商品照片為示意素材，非實際禮盒包裝。</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= LOCATIONS ================= -->
+    <section id="locations" class="section-pad bg-[#F0EBE2]">
+      <div class="container-custom">
+        <div class="text-center mb-12">
+          <p class="eyebrow mb-4">FIND US · 門市據點</p>
+          <h2 class="section-title">期待與你，在金禾相遇。</h2>
+          <p class="text-muted text-sm mt-4">找個時間，來吃一份熱騰騰的鍋貼。</p>
+        </div>
+
+        <div class="grid lg:grid-cols-[.85fr_1.15fr] gap-8">
+          <div>
+            <div id="storeTabs" class="grid grid-cols-2 gap-3 mb-6">
+              <button type="button" class="store-tab active" data-store="0" onclick="selectStore(0)">
+                <span class="text-[10px] text-orange">FLAGSHIP</span>
+                <p class="font-semibold text-sm mt-1">台北旗艦店</p>
+              </button>
+              <button type="button" class="store-tab" data-store="1" onclick="selectStore(1)">
+                <span class="text-[10px] text-orange">CITY STORE</span>
+                <p class="font-semibold text-sm mt-1">台北信義店</p>
+              </button>
+            </div>
+
+            <div class="bg-paper rounded-[7px] p-7 sm:p-9">
+              <p class="eyebrow mb-3">STORE INFORMATION</p>
+              <h3 id="storeName" class="display text-2xl font-semibold mb-7">台北旗艦店</h3>
+
+              <div class="space-y-6 text-sm">
+                <div class="flex gap-4">
+                  <i data-lucide="map-pin" class="w-5 h-5 text-orange shrink-0"></i>
+                  <div>
+                    <p class="font-semibold mb-1">門市地址</p>
+                    <p id="storeAddress" class="text-muted leading-7"></p>
+                  </div>
+                </div>
+                <div class="flex gap-4">
+                  <i data-lucide="phone" class="w-5 h-5 text-orange shrink-0"></i>
+                  <div>
+                    <p class="font-semibold mb-1">聯絡電話</p>
+                    <p id="storePhone" class="text-muted"></p>
+                  </div>
+                </div>
+                <div class="flex gap-4">
+                  <i data-lucide="clock" class="w-5 h-5 text-orange shrink-0"></i>
+                  <div>
+                    <p class="font-semibold mb-1">營業時間</p>
+                    <p id="storeHours" class="text-muted leading-7"></p>
+                  </div>
+                </div>
+              </div>
+
+              <div class="border-t border-line mt-7 pt-6">
+                <p class="text-xs text-muted mb-3">外送合作平台（示意）</p>
+                <div class="flex flex-wrap gap-2">
+                  <span class="text-xs px-3 py-2 bg-[#e6f2e7] text-[#267e3c] rounded font-bold">Uber Eats</span>
+                  <span class="text-xs px-3 py-2 bg-[#fce3eb] text-[#c62d62] rounded font-bold">foodpanda</span>
+                </div>
+              </div>
+
+              <p class="text-[11px] text-muted mt-6">※ 門市為展示範例，並非實際營業據點。</p>
+            </div>
+          </div>
+
+          <div class="bg-paper p-3 rounded-[9px]">
+            <div class="map-frame">
+              <iframe id="storeMap"
+                title="示範門市附近地圖"
+                loading="lazy"
+                referrerpolicy="no-referrer-when-downgrade"
+                src="https://maps.google.com/maps?q=Taipei%20Main%20Station&t=&z=14&ie=UTF8&iwloc=&output=embed">
+              </iframe>
+            </div>
+            <div class="flex flex-wrap items-center justify-between gap-3 px-3 py-4">
+              <div class="flex items-center gap-2 text-xs text-muted">
+                <i data-lucide="navigation" class="w-4 h-4 text-orange"></i>
+                地圖顯示示範區域
+              </div>
+              <a id="mapLink"
+                href="https://www.google.com/maps/search/?api=1&query=Taipei+Main+Station"
+                target="_blank" rel="noopener noreferrer"
+                class="text-xs font-semibold text-orange hover:underline">
+                在 Google Maps 開啟 ↗
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= FAQ ================= -->
+    <section id="faq" class="section-pad bg-paper">
+      <div class="container-custom max-w-[850px]">
+        <div class="text-center mb-12">
+          <p class="eyebrow mb-4">FREQUENTLY ASKED QUESTIONS</p>
+          <h2 class="section-title">常見問題</h2>
+          <p class="text-muted text-sm mt-4">關於金禾，你可能想知道的事。</p>
+        </div>
+
+        <div id="faqList">
+          <div class="faq-item">
+            <button type="button" aria-expanded="false" onclick="toggleFAQ(this)"
+              class="w-full flex items-center justify-between gap-4 text-left py-6">
+              <span class="text-sm font-semibold">Q1. 如何進行線上點餐？</span>
+              <i data-lucide="chevron-down" class="faq-chevron w-5 h-5 shrink-0 text-orange"></i>
+            </button>
+            <div class="faq-answer">
+              <p class="text-sm text-muted leading-8 pb-6">
+                選擇喜歡的餐點並加入購物車，確認數量後點擊前往結帳，
+                填寫聯絡資料與取餐方式即可完成示範流程。
+                本網站為展示版本，不會實際送出訂單。
+              </p>
+            </div>
+          </div>
+
+          <div class="faq-item">
+            <button type="button" aria-expanded="false" onclick="toggleFAQ(this)"
+              class="w-full flex items-center justify-between gap-4 text-left py-6">
+              <span class="text-sm font-semibold">Q2. 冷凍鍋貼應該如何保存？</span>
+              <i data-lucide="chevron-down" class="faq-chevron w-5 h-5 shrink-0 text-orange"></i>
+            </button>
+            <div class="faq-answer">
+              <p class="text-sm text-muted leading-8 pb-6">
+                冷凍產品建議保存於攝氏 -18 度以下，
+                並以實際包裝標示的保存期限與烹調說明為準。
+                解凍後請勿反覆冷凍，烹調時務必充分加熱。
+              </p>
+            </div>
+          </div>
+
+          <div class="faq-item">
+            <button type="button" aria-expanded="false" onclick="toggleFAQ(this)"
+              class="w-full flex items-center justify-between gap-4 text-left py-6">
+              <span class="text-sm font-semibold">Q3. 是否提供外送服務？</span>
+              <i data-lucide="chevron-down" class="faq-chevron w-5 h-5 shrink-0 text-orange"></i>
+            </button>
+            <div class="faq-answer">
+              <p class="text-sm text-muted leading-8 pb-6">
+                示範網站展示 Uber Eats 與 foodpanda 合作平台樣式。
+                實際外送範圍、運費與服務時間，應依正式上線後的門市資訊及平台公告為準。
+              </p>
+            </div>
+          </div>
+
+          <div class="faq-item">
+            <button type="button" aria-expanded="false" onclick="toggleFAQ(this)"
+              class="w-full flex items-center justify-between gap-4 text-left py-6">
+              <span class="text-sm font-semibold">Q4. 可以同時購買現做餐點與冷凍禮盒嗎？</span>
+              <i data-lucide="chevron-down" class="faq-chevron w-5 h-5 shrink-0 text-orange"></i>
+            </button>
+            <div class="faq-answer">
+              <p class="text-sm text-muted leading-8 pb-6">
+                可以同時加入購物車。示範結帳會依商品種類限制取餐方式：
+                現做餐點可選內用或外帶，冷凍禮盒可選外帶或宅配；
+                混合訂單僅提供外帶。實際營運可再拆分配送與取餐訂單。
+              </p>
+            </div>
+          </div>
+
+          <div class="faq-item">
+            <button type="button" aria-expanded="false" onclick="toggleFAQ(this)"
+              class="w-full flex items-center justify-between gap-4 text-left py-6">
+              <span class="text-sm font-semibold">Q5. 是否能大量訂購或企業送禮？</span>
+              <i data-lucide="chevron-down" class="faq-chevron w-5 h-5 shrink-0 text-orange"></i>
+            </button>
+            <div class="faq-answer">
+              <p class="text-sm text-muted leading-8 pb-6">
+                正式營運時可規劃企業禮盒、節慶大量訂購及客製化服務。
+                本展示網站尚未提供實際報價與客服受理功能。
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= NEWSLETTER ================= -->
+    <section class="bg-[#EDE1D2] py-16">
+      <div class="container-custom grid md:grid-cols-2 items-center gap-8">
+        <div>
+          <p class="eyebrow mb-3">STAY CONNECTED</p>
+          <h2 class="display text-2xl sm:text-3xl font-semibold">訂閱金禾的好消息。</h2>
+          <p class="text-muted text-sm mt-4 leading-7">
+            新品消息、節慶禮盒與品牌故事，讓美好不錯過。
+          </p>
+        </div>
+
+        <form id="newsletterForm" class="flex flex-col sm:flex-row gap-3">
+          <label for="newsletterEmail" class="sr-only">電子郵件</label>
+          <input id="newsletterEmail" type="email" required
+            autocomplete="email" placeholder="請輸入電子郵件"
+            class="form-field flex-1 min-w-0">
+          <button type="submit" class="btn-primary shrink-0">訂閱電子報</button>
+        </form>
+      </div>
+    </section>
+  </main>
+
+  <!-- ================= FOOTER ================= -->
+  <footer id="contact" class="bg-wood text-white pt-16 pb-7">
+    <div class="container-custom">
+      <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-10 pb-14">
+
+        <div>
+          <div class="flex items-center gap-3 mb-5">
+            <span class="w-10 h-10 rounded-full border border-white/40 flex items-center justify-center">
+              <i data-lucide="wheat" class="w-5 h-5"></i>
+            </span>
+            <div>
+              <p class="display text-xl tracking-widest font-bold">金禾</p>
+              <p class="text-[9px] tracking-widest text-white/60">GRAIN & GOLD</p>
+            </div>
+          </div>
+          <p class="text-xs text-white/60 leading-8 max-w-[260px]">
+            以真心對待食材，以溫度款待每一位客人。
+            把平凡的一餐，變成值得期待的日常。
+          </p>
+        </div>
+
+        <div>
+          <h3 class="text-sm font-semibold mb-6">快速導覽</h3>
+          <div class="flex flex-col gap-4 text-xs text-white/60">
+            <a href="#story" class="hover:text-white">品牌故事</a>
+            <a href="#menu" class="hover:text-white">熱門餐點</a>
+            <a href="#gifts" class="hover:text-white">冷凍禮盒</a>
+            <a href="#locations" class="hover:text-white">門市據點</a>
+          </div>
+        </div>
+
+        <div>
+          <h3 class="text-sm font-semibold mb-6">顧客服務</h3>
+          <div class="flex flex-col gap-4 text-xs text-white/60">
+            <a href="#faq" class="hover:text-white">常見問題</a>
+            <button type="button" onclick="openCart()" class="text-left hover:text-white">我的購物車</button>
+            <button type="button" onclick="showPolicy()" class="text-left hover:text-white">隱私權政策</button>
+            <p>客服信箱：hello@example.com</p>
+          </div>
+        </div>
+
+        <div>
+          <h3 class="text-sm font-semibold mb-6">追蹤金禾</h3>
+          <p class="text-xs text-white/60 leading-7 mb-5">
+            透過社群分享美食與生活中的美好片刻。
+          </p>
+          <div class="flex gap-3">
+            <button type="button" onclick="socialDemo('Instagram')" aria-label="Instagram"
+              class="w-10 h-10 border border-white/30 rounded-full flex items-center justify-center hover:bg-white/10">
+              <i data-lucide="instagram" class="w-4 h-4"></i>
+            </button>
+            <button type="button" onclick="socialDemo('Facebook')" aria-label="Facebook"
+              class="w-10 h-10 border border-white/30 rounded-full flex items-center justify-center hover:bg-white/10">
+              <i data-lucide="facebook" class="w-4 h-4"></i>
+            </button>
+            <button type="button" onclick="socialDemo('LINE')" aria-label="LINE"
+              class="w-10 h-10 border border-white/30 rounded-full flex items-center justify-center hover:bg-white/10">
+              <i data-lucide="message-circle" class="w-4 h-4"></i>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="border-t border-white/20 pt-6 flex flex-col sm:flex-row justify-between gap-3 text-[11px] text-white/45">
+        <p>© <span id="copyrightYear"></span> GRAIN & GOLD. All rights reserved.</p>
+        <p>品牌概念展示網站｜非實際商業訂購服務</p>
+      </div>
+    </div>
+  </footer>
+
+  <!-- ================= CART DRAWER ================= -->
+  <div id="drawerBackdrop" class="drawer-backdrop" onclick="closeCart()" aria-hidden="true"></div>
+
+  <aside id="cartDrawer" class="cart-drawer" role="dialog" aria-modal="true"
+    aria-labelledby="cartTitle" aria-hidden="true" tabindex="-1">
+
+    <div class="flex items-center justify-between p-6 border-b border-line">
+      <div>
+        <p class="eyebrow mb-1">YOUR ORDER</p>
+        <h2 id="cartTitle" class="display text-2xl font-semibold">我的購物車</h2>
+      </div>
+      <button type="button" onclick="closeCart()" aria-label="關閉購物車" class="p-2">
+        <i data-lucide="x" class="w-6 h-6"></i>
+      </button>
+    </div>
+
+    <div id="cartItems" class="flex-1 overflow-y-auto p-6"></div>
+
+    <div class="p-6 border-t border-line bg-paper">
+      <div class="flex justify-between text-sm mb-3">
+        <span class="text-muted">商品小計</span>
+        <span id="cartSubtotal" class="font-semibold">NT$ 0</span>
+      </div>
+      <div class="flex justify-between text-sm mb-5">
+        <span class="text-muted">運費</span>
+        <span class="text-muted">結帳時依方式計算</span>
+      </div>
+      <div class="border-t border-line pt-4 flex justify-between items-center mb-5">
+        <span class="font-semibold">商品總額</span>
+        <span id="cartTotal" class="display text-2xl font-bold">NT$ 0</span>
+      </div>
+      <button id="checkoutButton" type="button" onclick="openCheckout()"
+        class="btn-primary w-full">
+        前往結帳
+        <i data-lucide="arrow-right" class="w-4 h-4"></i>
+      </button>
+      <p class="text-center text-[11px] text-muted mt-4">此為模擬訂購，不會產生實際付款。</p>
+    </div>
+  </aside>
+
+  <!-- ================= CHECKOUT MODAL ================= -->
+  <div id="checkoutModal" class="modal-backdrop" role="dialog" aria-modal="true"
+    aria-labelledby="checkoutTitle" aria-hidden="true">
+    <div class="modal-panel" tabindex="-1">
+
+      <div id="checkoutFormView">
+        <div class="flex justify-between items-start mb-7">
+          <div>
+            <p class="eyebrow mb-2">CHECKOUT</p>
+            <h2 id="checkoutTitle" class="display text-2xl font-semibold">確認您的訂單</h2>
+          </div>
+          <button type="button" onclick="closeCheckout()" aria-label="關閉結帳視窗">
+            <i data-lucide="x" class="w-6 h-6"></i>
+          </button>
+        </div>
+
+        <form id="checkoutForm">
+          <p class="text-sm font-semibold mb-3">選擇取餐／配送方式</p>
+
+          <div id="fulfillmentOptions" class="grid grid-cols-3 gap-2 mb-7">
+            <label class="cursor-pointer">
+              <input type="radio" name="fulfillment" value="dinein" class="accent-orange" checked>
+              <span class="text-xs ml-1">內用</span>
+            </label>
+            <label class="cursor-pointer">
+              <input type="radio" name="fulfillment" value="takeaway" class="accent-orange">
+              <span class="text-xs ml-1">外帶</span>
+            </label>
+            <label class="cursor-pointer">
+              <input type="radio" name="fulfillment" value="delivery" class="accent-orange">
+              <span class="text-xs ml-1">宅配</span>
+            </label>
+          </div>
+
+          <p id="fulfillmentHint" class="text-xs text-muted mb-6"></p>
+
+          <div id="pickupStoreWrap" class="mb-5">
+            <label for="pickupStore" class="block text-xs font-semibold mb-2">選擇門市</label>
+            <select id="pickupStore" class="form-field">
+              <option value="台北旗艦店">台北旗艦店（示範）</option>
+              <option value="台北信義店">台北信義店（示範）</option>
+            </select>
+          </div>
+
+          <div class="grid sm:grid-cols-2 gap-4 mb-4">
+            <div>
+              <label for="customerName" class="block text-xs font-semibold mb-2">聯絡姓名 *</label>
+              <input id="customerName" name="customerName" class="form-field"
+                autocomplete="name" maxlength="50" required placeholder="請輸入姓名">
+            </div>
+            <div>
+              <label for="customerPhone" class="block text-xs font-semibold mb-2">聯絡電話 *</label>
+              <input id="customerPhone" name="customerPhone" class="form-field"
+                type="tel" inputmode="tel" autocomplete="tel"
+                pattern="[0-9+\-() ]{8,20}" required placeholder="0912-345-678">
+            </div>
+          </div>
+
+          <div class="mb-4">
+            <label for="customerEmail" class="block text-xs font-semibold mb-2">電子郵件（選填）</label>
+            <input id="customerEmail" name="customerEmail" type="email"
+              autocomplete="email" class="form-field" placeholder="hello@example.com">
+          </div>
+
+          <div id="deliveryAddressWrap" class="hidden mb-4">
+            <label for="deliveryAddress" class="block text-xs font-semibold mb-2">宅配地址 *</label>
+            <textarea id="deliveryAddress" name="deliveryAddress"
+              class="form-field" rows="2" maxlength="200"
+              placeholder="請輸入完整宅配地址"></textarea>
+          </div>
+
+          <div class="mb-5">
+            <label for="orderNote" class="block text-xs font-semibold mb-2">備註（選填）</label>
+            <textarea id="orderNote" name="orderNote"
+              class="form-field" rows="2" maxlength="200"
+              placeholder="例如：不加辣、特殊需求"></textarea>
+          </div>
+
+          <div class="bg-cream rounded p-5 mb-6">
+            <p class="text-sm font-semibold mb-3">訂單摘要</p>
+            <div id="checkoutSummary" class="space-y-2 text-xs text-muted"></div>
+            <div class="flex justify-between mt-4 pt-3 border-t border-line">
+              <span class="text-sm font-semibold">應付金額（模擬）</span>
+              <span id="checkoutTotal" class="font-bold text-lg text-orange"></span>
+            </div>
+          </div>
+
+          <p class="text-[11px] text-muted mb-5 leading-6">
+            本站不會將表單資料傳送至伺服器。提交後僅顯示本機模擬成功畫面。
+          </p>
+
+          <button type="submit" class="btn-primary w-full">確認建立示範訂單</button>
+        </form>
+      </div>
+
+      <div id="checkoutSuccessView" class="hidden text-center py-8">
+        <div class="w-20 h-20 rounded-full bg-[#e6f1e6] text-[#39824b] flex items-center justify-center mx-auto mb-6">
+          <i data-lucide="check-circle-2" class="w-11 h-11"></i>
+        </div>
+        <p class="eyebrow mb-3">ORDER CONFIRMED</p>
+        <h2 class="display text-3xl font-semibold mb-4">訂單已建立！</h2>
+        <p class="text-sm text-muted leading-8 mb-3">
+          感謝您的選購，這是一筆模擬訂單。
+        </p>
+        <p id="successOrderNumber" class="text-sm font-semibold mb-3"></p>
+        <p class="text-xs text-muted mb-8">
+          不會實際備餐、宅配、付款或寄送通知。
+        </p>
+        <button type="button" onclick="closeCheckout()" class="btn-primary w-full">
+          返回品牌官網
+        </button>
       </div>
     </div>
   </div>
 
-<script>
-// ============ 1. 餐廳資料庫 ============
-// ⚠ sample:true 為示意資料，請依實際店家替換名稱、距離與分類。
-// googleMapUrl 留空時，會自動用「南港 + 店名」產生 Google 地圖搜尋連結。
-const RESTAURANTS = [
-  { id:"rest_001", name:"樂法 Le Phu", distanceMeters:300, hasAC:true, categories:["漢堡/美式","健康餐/沙拉"], googleMapUrl:"", priceRange:"$" },
-  { id:"rest_002", name:"朱記餡餅粥店 (南港環球店)", distanceMeters:1200, hasAC:true, categories:["麵","飯","鍋貼/水餃"], googleMapUrl:"", priceRange:"$$" },
-  { id:"rest_003", name:"園區便當專賣", distanceMeters:250, hasAC:true, categories:["飯"], priceRange:"$", sample:true },
-  { id:"rest_004", name:"園區牛肉麵館", distanceMeters:400, hasAC:true, categories:["麵"], priceRange:"$$", sample:true },
-  { id:"rest_005", name:"巷口乾麵攤", distanceMeters:450, hasAC:false, categories:["麵","湯包/小吃"], priceRange:"$", sample:true },
-  { id:"rest_006", name:"鍋貼水餃專賣", distanceMeters:600, hasAC:true, categories:["鍋貼/水餃"], priceRange:"$", sample:true },
-  { id:"rest_007", name:"輕食沙拉吧", distanceMeters:700, hasAC:true, categories:["健康餐/沙拉"], priceRange:"$$", sample:true },
-  { id:"rest_008", name:"車站排骨飯", distanceMeters:800, hasAC:true, categories:["飯"], priceRange:"$", sample:true },
-  { id:"rest_009", name:"小籠湯包店", distanceMeters:900, hasAC:true, categories:["湯包/小吃","麵"], priceRange:"$$", sample:true },
-  { id:"rest_010", name:"美式漢堡餐廳", distanceMeters:950, hasAC:true, categories:["漢堡/美式"], priceRange:"$$", sample:true },
-  { id:"rest_011", name:"傳統滷肉飯", distanceMeters:480, hasAC:false, categories:["飯","湯包/小吃"], priceRange:"$", sample:true },
-  { id:"rest_012", name:"昆陽拉麵屋", distanceMeters:1600, hasAC:true, categories:["麵"], priceRange:"$$", sample:true },
-  { id:"rest_013", name:"日式丼飯屋", distanceMeters:1900, hasAC:true, categories:["飯"], priceRange:"$$", sample:true },
-  { id:"rest_014", name:"老字號水餃攤", distanceMeters:1400, hasAC:false, categories:["鍋貼/水餃"], priceRange:"$", sample:true },
-  { id:"rest_015", name:"健康餐盒工坊", distanceMeters:1700, hasAC:true, categories:["健康餐/沙拉","飯"], priceRange:"$$", sample:true }
-];
-const CATEGORIES = ["麵","飯","鍋貼/水餃","漢堡/美式","湯包/小吃","健康餐/沙拉"];
-const WALK_M_PER_MIN = 80;
+  <!-- ================= POLICY MODAL ================= -->
+  <div id="policyModal" class="modal-backdrop" role="dialog" aria-modal="true"
+    aria-labelledby="policyTitle" aria-hidden="true">
+    <div class="modal-panel">
+      <div class="flex justify-between items-center mb-6">
+        <h2 id="policyTitle" class="display text-2xl font-semibold">隱私權政策（展示版）</h2>
+        <button type="button" onclick="closePolicy()" aria-label="關閉隱私權政策">
+          <i data-lucide="x" class="w-6 h-6"></i>
+        </button>
+      </div>
+      <div class="text-sm text-muted leading-8 space-y-4">
+        <p>本網站為品牌官網設計示範，不提供真實交易或電子報服務。</p>
+        <p>購物車資料僅保存在目前瀏覽器的記憶體中，重新整理後即會清空。</p>
+        <p>結帳資料不會傳送至任何後端系統，提交時僅用於顯示本機模擬成功畫面。</p>
+        <p>網站使用第三方 CDN、Google Fonts、Unsplash 圖片及 Google Maps 嵌入內容，這些服務可能依其政策處理連線資訊。</p>
+        <p>正式營運前，須依實際資料蒐集、使用、保存及第三方服務情形制定完整隱私權政策。</p>
+      </div>
+      <button type="button" onclick="closePolicy()" class="btn-primary w-full mt-7">我已了解</button>
+    </div>
+  </div>
 
-// ============ 2. UI 與篩選 ============
-const $ = id => document.getElementById(id);
-const catsBox = $("cats");
-CATEGORIES.forEach(c => {
-  const l = document.createElement("label");
-  l.className = "opt";
-  l.innerHTML = `<input type="checkbox" value="${c}" checked> ${c}`;
-  catsBox.appendChild(l);
-});
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
-function getFiltered(){
-  const maxDist = +document.querySelector('input[name="dist"]:checked').value;
-  const needAC = $("need-ac").checked;
-  const cats = [...catsBox.querySelectorAll("input:checked")].map(i => i.value);
-  return RESTAURANTS.filter(r =>
-    r.distanceMeters <= maxDist &&
-    (!needAC || r.hasAC) &&
-    (cats.length === 0 || r.categories.some(c => cats.includes(c)))
-  );
-}
+  <!-- ================= JAVASCRIPT ================= -->
+  <script>
+    "use strict";
 
-let current = [];
-function onFilterChange(){
-  current = getFiltered();
-  $("count-num").textContent = current.length;
-  $("count").classList.toggle("zero", current.length === 0);
-  $("count").innerHTML = current.length === 0
-    ? "沒有符合條件的餐廳，請放寬篩選"
-    : `符合條件：<b id="count-num">${current.length}</b> 間`;
-  $("spin-btn").disabled = current.length === 0 || spinning;
-  drawWheelTexture();
-}
-document.getElementById("ui-container").addEventListener("change", onFilterChange);
+    // 商品資料：全部為展示用示範資料
+    const products = [
+      {
+        id: "p1", category: "potsticker",
+        name: "經典鮮肉鍋貼",
+        desc: "台灣豬肉搭配鮮甜高麗菜，底部金黃酥脆。",
+        price: 75, unit: "10 顆", tag: "人氣 NO.1",
+        image: "https://images.unsplash.com/photo-1563245372-f21724e3856d?auto=format&fit=crop&w=800&q=80"
+      },
+      {
+        id: "p2", category: "potsticker",
+        name: "韓式泡菜鍋貼",
+        desc: "微酸微辣的泡菜風味，香氣層次豐富。",
+        price: 85, unit: "10 顆", tag: "微辣",
+        image: "https://images.unsplash.com/photo-1496116218417-1a781b1c416c?auto=format&fit=crop&w=800&q=80"
+      },
+      {
+        id: "p3", category: "potsticker",
+        name: "韭香鮮肉鍋貼",
+        desc: "韭菜清香與鮮肉交織，經典不敗。",
+        price: 80, unit: "10 顆", tag: "經典",
+        image: "https://images.unsplash.com/photo-1563245372-f21724e3856d?auto=format&fit=crop&w=800&q=80"
+      },
+      {
+        id: "p4", category: "potsticker",
+        name: "玉米鮮肉鍋貼",
+        desc: "甜玉米搭配鮮嫩肉餡，大人小孩都喜歡。",
+        price: 85, unit: "10 顆", tag: "清甜",
+        image: "https://images.unsplash.com/photo-1496116218417-1a781b1c416c?auto=format&fit=crop&w=800&q=80"
+      },
+      {
+        id: "d1", category: "dumpling",
+        name: "高麗菜鮮肉水餃",
+        desc: "薄皮包裹飽滿內餡，清甜多汁。",
+        price: 75, unit: "10 顆", tag: "人氣",
+        image: "https://images.unsplash.com/photo-1496116218417-1a781b1c416c?auto=format&fit=crop&w=800&q=80"
+      },
+      {
+        id: "d2", category: "dumpling",
+        name: "韭菜鮮肉水餃",
+        desc: "韭香濃郁，口感紮實有層次。",
+        price: 80, unit: "10 顆", tag: "經典",
+        image: "https://images.unsplash.com/photo-1563245372-f21724e3856d?auto=format&fit=crop&w=800&q=80"
+      },
+      {
+        id: "d3", category: "dumpling",
+        name: "鮮蝦豬肉水餃",
+        desc: "鮮蝦與豬肉結合，口感鮮甜。",
+        price: 120, unit: "10 顆", tag: "精選",
+        image: "https://images.unsplash.com/photo-1496116218417-1a781b1c416c?auto=format&fit=crop&w=800&q=80"
+      },
+      {
+        id: "d4", category: "dumpling",
+        name: "玉米鮮肉水餃",
+        desc: "清甜玉米粒與鮮肉的柔和組合。",
+        price: 85, unit: "10 顆", tag: "清甜",
+        image: "https://images.unsplash.com/photo-1563245372-f21724e3856d?auto=format&fit=crop&w=800&q=80"
+      },
+      {
+        id: "s1", category: "soup",
+        name: "酸辣湯",
+        desc: "酸香微辣，搭配鍋貼的經典選擇。",
+        price: 45, unit: "1 碗", tag: "微辣",
+        image: "https://images.unsplash.com/photo-1547592180-85f173990554?auto=format&fit=crop&w=800&q=80"
+      },
+      {
+        id: "s2", category: "soup",
+        name: "玉米濃湯",
+        desc: "香甜濃郁，口感滑順溫暖。",
+        price: 45, unit: "1 碗", tag: "暖心",
+        image: "https://images.unsplash.com/photo-1547592180-85f173990554?auto=format&fit=crop&w=800&q=80"
+      },
+      {
+        id: "s3", category: "soup",
+        name: "古早味紅茶",
+        desc: "清爽茶香，甜度適中。",
+        price: 30, unit: "1 杯", tag: "飲品",
+        image: "https://images.unsplash.com/photo-1544787219-7f47ccb76574?auto=format&fit=crop&w=800&q=80"
+      },
+      {
+        id: "s4", category: "soup",
+        name: "無糖青茶",
+        desc: "清新茶韻，解膩順口。",
+        price: 35, unit: "1 杯", tag: "無糖",
+        image: "https://images.unsplash.com/photo-1544787219-7f47ccb76574?auto=format&fit=crop&w=800&q=80"
+      },
+      {
+        id: "a1", category: "side",
+        name: "黃金泡菜",
+        desc: "酸甜爽脆，帶出清爽好滋味。",
+        price: 45, unit: "1 份", tag: "人氣",
+        image: "https://images.unsplash.com/photo-1547592180-85f173990554?auto=format&fit=crop&w=800&q=80"
+      },
+      {
+        id: "a2", category: "side",
+        name: "涼拌小黃瓜",
+        desc: "蒜香清爽，冰涼開胃。",
+        price: 40, unit: "1 份", tag: "清爽",
+        image: "https://images.unsplash.com/photo-1512621776951-a57141f2eefd?auto=format&fit=crop&w=800&q=80"
+      },
+      {
+        id: "a3", category: "side",
+        name: "滷香豆干",
+        desc: "滷汁入味，鹹香適口。",
+        price: 40, unit: "1 份", tag: "經典",
+        image: "https://images.unsplash.com/photo-1547592180-85f173990554?auto=format&fit=crop&w=800&q=80"
+      },
+      {
+        id: "a4", category: "side",
+        name: "香滷海帶",
+        desc: "清爽柔韌，帶有淡淡滷香。",
+        price: 35, unit: "1 份", tag: "小菜",
+        image: "https://images.unsplash.com/photo-1512621776951-a57141f2eefd?auto=format&fit=crop&w=800&q=80"
+      },
+      {
+        id: "gift50", category: "gift",
+        name: "招牌招財鍋貼禮盒",
+        desc: "冷凍鍋貼家庭分享組，50 顆裝。",
+        price: 499, unit: "50 顆", tag: "冷凍禮盒",
+        image: "https://images.unsplash.com/photo-1563245372-f21724e3856d?auto=format&fit=crop&w=800&q=80"
+      }
+    ];
 
-// ============ 3. Three.js 場景 ============
-const container = $("canvas-container");
-const scene = new THREE.Scene();
-const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 100);
-const renderer = new THREE.WebGLRenderer({ antialias:true, alpha:true });
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-container.appendChild(renderer.domElement);
+    const stores = [
+      {
+        name: "台北旗艦店",
+        address: "台北車站周邊（示範區域，無實際門牌）",
+        phone: "尚未提供（展示門市）",
+        hours: "每日 11:00–21:00（示範時間）",
+        mapQuery: "Taipei Main Station"
+      },
+      {
+        name: "台北信義店",
+        address: "台北 101 周邊（示範區域，無實際門牌）",
+        phone: "尚未提供（展示門市）",
+        hours: "每日 11:00–21:30（示範時間）",
+        mapQuery: "Taipei 101"
+      }
+    ];
 
-scene.add(new THREE.AmbientLight(0xffffff, 0.75));
-const dir = new THREE.DirectionalLight(0xffffff, 0.8);
-dir.position.set(4, 8, 10);
-scene.add(dir);
-const rim = new THREE.PointLight(0x7aa2ff, 0.6, 40);
-rim.position.set(-8, -4, 6);
-scene.add(rim);
+    const cart = new Map();
+    const currency = amount => "NT$ " + amount.toLocaleString("zh-TW");
 
-const R = 4;
-const tiltGroup = new THREE.Group();   // 拖曳傾斜用
-const wheelGroup = new THREE.Group();  // 旋轉用 (rotation.z)
-tiltGroup.add(wheelGroup);
-scene.add(tiltGroup);
+    let activeCategory = "potsticker";
+    let toastTimer = null;
+    let lastFocusedElement = null;
 
-// 輪盤本體
-const body = new THREE.Mesh(
-  new THREE.CylinderGeometry(R + 0.15, R + 0.15, 0.4, 64),
-  new THREE.MeshStandardMaterial({ color:0x2b2f66, metalness:.5, roughness:.35 })
-);
-body.rotation.x = Math.PI / 2;
-wheelGroup.add(body);
+    const $ = id => document.getElementById(id);
 
-const faceMat = new THREE.MeshBasicMaterial({ transparent:true });
-const face = new THREE.Mesh(new THREE.CircleGeometry(R, 96), faceMat);
-face.position.z = 0.21;
-wheelGroup.add(face);
-
-const ring = new THREE.Mesh(
-  new THREE.TorusGeometry(R + 0.12, 0.17, 24, 96),
-  new THREE.MeshStandardMaterial({ color:0xffc857, metalness:.8, roughness:.25 })
-);
-ring.position.z = 0.2;
-wheelGroup.add(ring);
-
-const hub = new THREE.Mesh(
-  new THREE.CylinderGeometry(0.45, 0.45, 0.35, 32),
-  new THREE.MeshStandardMaterial({ color:0xffc857, metalness:.8, roughness:.25 })
-);
-hub.rotation.x = Math.PI / 2;
-hub.position.z = 0.35;
-wheelGroup.add(hub);
-
-// 指針 (固定於上方，朝下)
-const pointer = new THREE.Mesh(
-  new THREE.ConeGeometry(0.4, 1, 24),
-  new THREE.MeshStandardMaterial({ color:0xff4d6d, metalness:.3, roughness:.3, emissive:0x550015 })
-);
-pointer.rotation.z = Math.PI;
-pointer.position.set(0, R + 0.35, 0.6);
-tiltGroup.add(pointer);
-
-// 星點背景
-(function(){
-  const g = new THREE.BufferGeometry();
-  const p = [];
-  for(let i=0;i<300;i++) p.push((Math.random()-.5)*60,(Math.random()-.5)*40,-10-Math.random()*15);
-  g.setAttribute("position", new THREE.Float32BufferAttribute(p,3));
-  scene.add(new THREE.Points(g, new THREE.PointsMaterial({ color:0xffffff, size:.08, transparent:true, opacity:.6 })));
-})();
-
-// ---- Canvas 動態文字貼圖 ----
-const PALETTE = ["#ff6b6b","#feca57","#48dbfb","#1dd1a1","#ff9ff3","#54a0ff","#ff9f43","#5f27cd","#00d2d3","#c8d6e5"];
-const texCanvas = document.createElement("canvas");
-texCanvas.width = texCanvas.height = 1024;
-const tctx = texCanvas.getContext("2d");
-let texture = null;
-
-function drawWheelTexture(){
-  const n = current.length, S = 1024, C = S/2, rad = C - 6;
-  tctx.clearRect(0,0,S,S);
-  if(n === 0){
-    tctx.fillStyle = "#3a3f73";
-    tctx.beginPath(); tctx.arc(C,C,rad,0,Math.PI*2); tctx.fill();
-    tctx.fillStyle = "#fff"; tctx.font = "bold 54px sans-serif"; tctx.textAlign = "center";
-    tctx.fillText("沒有符合的餐廳", C, C+18);
-  } else {
-    const sec = Math.PI*2/n;
-    const fs = n <= 6 ? 54 : n <= 10 ? 44 : n <= 14 ? 36 : 30;
-    for(let i=0;i<n;i++){
-      tctx.beginPath(); tctx.moveTo(C,C);
-      tctx.arc(C,C,rad,i*sec,(i+1)*sec); tctx.closePath();
-      tctx.fillStyle = PALETTE[i % PALETTE.length];
-      if(n % PALETTE.length === 1 && i === n-1) tctx.fillStyle = "#a29bfe"; // 避免首尾同色
-      tctx.fill();
-      tctx.lineWidth = 3; tctx.strokeStyle = "rgba(255,255,255,.85)"; tctx.stroke();
-
-      tctx.save();
-      tctx.translate(C,C); tctx.rotate((i+.5)*sec);
-      tctx.textAlign = "right"; tctx.textBaseline = "middle";
-      tctx.fillStyle = "#1b1d3a";
-      tctx.font = `bold ${fs}px "PingFang TC","Microsoft JhengHei","Noto Sans TC",sans-serif`;
-      let name = current[i].name;
-      const maxW = rad - 130;
-      while(tctx.measureText(name).width > maxW && name.length > 2) name = name.slice(0,-1);
-      if(name !== current[i].name) name += "…";
-      tctx.fillText(name, rad - 36, 0);
-      tctx.restore();
+    function refreshIcons() {
+      if (window.lucide) window.lucide.createIcons();
     }
-  }
-  if(!texture){ texture = new THREE.CanvasTexture(texCanvas); texture.anisotropy = 8; faceMat.map = texture; }
-  texture.needsUpdate = true;
-  faceMat.needsUpdate = true;
-}
 
-// ---- 版面 ----
-function resize(){
-  const w = window.innerWidth, h = window.innerHeight;
-  renderer.setSize(w,h);
-  camera.aspect = w/h;
-  if(w > 900){ camera.position.set(0,0,14.5); tiltGroup.position.set(2.2,-0.3,0); }
-  else { camera.position.set(0,0,17); tiltGroup.position.set(0,2.2,0); }
-  camera.updateProjectionMatrix();
-}
-window.addEventListener("resize", resize);
-
-// ---- 拖曳傾斜 ----
-let dragging = false, lastX = 0, lastY = 0, tiltX = 0, tiltY = 0;
-renderer.domElement.addEventListener("pointerdown", e => { dragging = true; lastX = e.clientX; lastY = e.clientY; });
-window.addEventListener("pointerup", () => dragging = false);
-window.addEventListener("pointermove", e => {
-  if(!dragging) return;
-  tiltY += (e.clientX - lastX) * 0.005;
-  tiltX += (e.clientY - lastY) * 0.005;
-  tiltY = Math.max(-0.7, Math.min(0.7, tiltY));
-  tiltX = Math.max(-0.5, Math.min(0.5, tiltX));
-  lastX = e.clientX; lastY = e.clientY;
-});
-
-// ============ 4. 轉動動畫 (Ease-Out) ============
-const SPIN_MS = 3000;
-let spinning = false, spinStart = 0, spinFrom = 0, spinTo = 0, winnerIdx = -1;
-const easeOutQuart = t => 1 - Math.pow(1 - t, 4);
-
-function startSpin(){
-  if(spinning || current.length === 0) return;
-  spinning = true;
-  $("spin-btn").disabled = true;
-  const n = current.length, sec = Math.PI*2/n;
-  winnerIdx = Math.floor(Math.random()*n);
-  const center = (winnerIdx + 0.5 + (Math.random()-.5)*0.7) * sec;   // 扇區內隨機落點
-  const base = center + Math.PI/2;                                   // 讓該扇區轉到正上方指針
-  const TAU = Math.PI*2;
-  spinFrom = wheelGroup.rotation.z;
-  spinTo = base + TAU * Math.ceil((spinFrom + TAU*6 - base) / TAU);  // 至少多轉 6 圈
-  spinStart = performance.now();
-}
-
-// ============ 粒子 (Confetti) ============
-let confetti = null;
-function burstConfetti(){
-  if(confetti){ scene.remove(confetti.points); confetti.points.geometry.dispose(); }
-  const N = 220, pos = new Float32Array(N*3), col = new Float32Array(N*3), vel = [];
-  const wp = new THREE.Vector3(); tiltGroup.getWorldPosition(wp);
-  const cols = PALETTE.map(c => new THREE.Color(c));
-  for(let i=0;i<N;i++){
-    pos.set([wp.x, wp.y + R*0.9, 1.5], i*3);
-    const a = Math.random()*Math.PI*2, s = 3 + Math.random()*7;
-    vel.push(new THREE.Vector3(Math.cos(a)*s, Math.sin(a)*s + 4, (Math.random()-.3)*4));
-    const c = cols[i % cols.length]; col.set([c.r,c.g,c.b], i*3);
-  }
-  const g = new THREE.BufferGeometry();
-  g.setAttribute("position", new THREE.BufferAttribute(pos,3));
-  g.setAttribute("color", new THREE.BufferAttribute(col,3));
-  const m = new THREE.PointsMaterial({ size:.22, vertexColors:true, transparent:true });
-  const points = new THREE.Points(g,m);
-  scene.add(points);
-  confetti = { points, vel, life:0 };
-}
-function updateConfetti(dt){
-  if(!confetti) return;
-  confetti.life += dt;
-  const p = confetti.points.geometry.attributes.position;
-  for(let i=0;i<confetti.vel.length;i++){
-    const v = confetti.vel[i];
-    v.y -= 9*dt; v.multiplyScalar(1 - 0.4*dt);
-    p.setXYZ(i, p.getX(i)+v.x*dt, p.getY(i)+v.y*dt, p.getZ(i)+v.z*dt);
-  }
-  p.needsUpdate = true;
-  confetti.points.material.opacity = Math.max(0, 1 - confetti.life/2.8);
-  if(confetti.life > 2.8){ scene.remove(confetti.points); confetti.points.geometry.dispose(); confetti = null; }
-}
-
-// ============ 主迴圈 ============
-let last = performance.now();
-function animate(now){
-  requestAnimationFrame(animate);
-  const dt = Math.min(0.05, (now - last)/1000); last = now;
-
-  if(spinning){
-    const t = Math.min(1, (now - spinStart)/SPIN_MS);
-    wheelGroup.rotation.z = spinFrom + (spinTo - spinFrom) * easeOutQuart(t);
-    if(t >= 1){
-      spinning = false;
-      $("spin-btn").disabled = current.length === 0;
-      burstConfetti();
-      setTimeout(() => showResult(current[winnerIdx]), 700);
+    // 防止插入 HTML 時出現非預期標籤
+    function escapeHTML(value) {
+      return String(value).replace(/[&<>"']/g, ch => ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#39;"
+      })[ch]);
     }
-  } else {
-    wheelGroup.rotation.z += dt * 0.12;   // 微弱待機旋轉
-  }
 
-  const wobble = spinning ? 0 : Math.sin(now/1800)*0.05;
-  tiltGroup.rotation.y += ((tiltY + wobble) - tiltGroup.rotation.y) * 0.1;
-  tiltGroup.rotation.x += (tiltX - tiltGroup.rotation.x) * 0.1;
-  if(!dragging){ tiltY *= 0.995; tiltX *= 0.995; }
+    function showToast(message) {
+      const toast = $("toast");
+      toast.textContent = message;
+      toast.classList.add("show");
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => toast.classList.remove("show"), 2800);
+    }
 
-  updateConfetti(dt);
-  renderer.render(scene, camera);
-}
+    // ================= 菜單分類 =================
+    function setCategory(category) {
+      activeCategory = category;
 
-// ============ 5. 結果展示 ============
-function showResult(r){
-  const walk = Math.max(1, Math.round(r.distanceMeters / WALK_M_PER_MIN));
-  $("r-name").textContent = r.name;
-  $("r-dist").textContent = `${r.distanceMeters} 公尺，步行約 ${walk} 分鐘　${r.priceRange || ""}`;
-  $("r-tags").innerHTML = "";
-  [r.hasAC ? "❄️ 有冷氣" : "🌿 無冷氣", ...r.categories].forEach(t => {
-    const s = document.createElement("span"); s.textContent = t; $("r-tags").appendChild(s);
-  });
-  $("r-sample").textContent = r.sample ? "※ 此為示意資料，請至 RESTAURANTS 陣列替換為實際店家" : "";
-  $("r-map").href = r.googleMapUrl || ("https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent("南港 " + r.name));
-  $("result-modal").classList.remove("hidden");
-}
-const closeModal = () => $("result-modal").classList.add("hidden");
+      document.querySelectorAll(".tab-button").forEach(btn => {
+        const selected = btn.dataset.category === category;
+        btn.classList.toggle("active", selected);
+        btn.setAttribute("aria-selected", String(selected));
+      });
 
-$("spin-btn").addEventListener("click", startSpin);
-$("r-again").addEventListener("click", () => { closeModal(); startSpin(); });
-$("r-filter").addEventListener("click", closeModal);
-$("result-modal").addEventListener("click", e => { if(e.target.id === "result-modal") closeModal(); });
+      renderProducts();
+    }
 
-// ============ 啟動 ============
-resize();
-onFilterChange();
-requestAnimationFrame(animate);
-</script>
+    function renderProducts() {
+      const list = products.filter(p => p.category === activeCategory);
+
+      $("productGrid").innerHTML = list.map(p => `
+        <article class="product-card fade-in">
+          <div class="product-image image-zoom">
+            <img src="${p.image}" alt="${escapeHTML(p.name)}示意照片"
+              loading="lazy" class="image-cover"
+              onerror="this.style.opacity='.2'">
+            <span class="absolute top-3 left-3 tag">${escapeHTML(p.tag)}</span>
+          </div>
+          <div class="p-4 sm:p-5">
+            <p class="text-[10px] text-muted mb-2">${escapeHTML(p.unit)}</p>
+            <h3 class="font-semibold text-sm sm:text-base mb-2">${escapeHTML(p.name)}</h3>
+            <p class="text-xs text-muted leading-6 min-h-[48px]">${escapeHTML(p.desc)}</p>
+            <div class="flex flex-wrap justify-between items-center gap-2 mt-5">
+              <span class="display text-lg sm:text-xl font-bold">${currency(p.price)}</span>
+              <button type="button" onclick="addToCart('${p.id}')"
+                aria-label="加入購物車：${escapeHTML(p.name)}"
+                class="w-9 h-9 bg-wood text-white rounded-full flex items-center justify-center hover:bg-orange transition">
+                <i data-lucide="plus" class="w-4 h-4"></i>
+              </button>
+            </div>
+          </div>
+        </article>
+      `).join("");
+
+      refreshIcons();
+    }
+
+    // ================= 購物車 =================
+    function addToCart(id) {
+      const product = products.find(p => p.id === id);
+      if (!product) return;
+
+      const current = cart.get(id) || 0;
+      cart.set(id, current + 1);
+      updateCartUI();
+      showToast("已將「" + product.name + "」加入購物車");
+    }
+
+    function removeFromCart(id) {
+      cart.delete(id);
+      updateCartUI();
+    }
+
+    function changeQuantity(id, delta) {
+      if (!cart.has(id)) return;
+
+      const next = cart.get(id) + delta;
+      if (next <= 0) cart.delete(id);
+      else cart.set(id, Math.min(next, 99));
+
+      updateCartUI();
+    }
+
+    function getCartDetails() {
+      return [...cart.entries()].map(([id, qty]) => {
+        const product = products.find(p => p.id === id);
+        return product ? { ...product, qty } : null;
+      }).filter(Boolean);
+    }
+
+    function getCartSubtotal() {
+      return getCartDetails().reduce((sum, p) => sum + p.price * p.qty, 0);
+    }
+
+    function updateCartUI() {
+      const items = getCartDetails();
+      const count = items.reduce((sum, p) => sum + p.qty, 0);
+      const total = getCartSubtotal();
+
+      $("cartBadge").textContent = count > 99 ? "99+" : count;
+      $("cartBadge").classList.toggle("hidden", count === 0);
+
+      $("cartSubtotal").textContent = currency(total);
+      $("cartTotal").textContent = currency(total);
+      $("checkoutButton").disabled = count === 0;
+
+      if (items.length === 0) {
+        $("cartItems").innerHTML = `
+          <div class="h-full min-h-[300px] flex flex-col items-center justify-center text-center">
+            <div class="w-20 h-20 bg-cream rounded-full flex items-center justify-center mb-5">
+              <i data-lucide="shopping-bag" class="w-9 h-9 text-muted"></i>
+            </div>
+            <h3 class="display text-xl font-semibold mb-3">購物車還是空的</h3>
+            <p class="text-xs text-muted leading-7 mb-6">今天想吃點什麼呢？<br>挑選喜歡的餐點吧！</p>
+            <button type="button" onclick="closeCart(); document.getElementById('menu').scrollIntoView({behavior:'smooth'})"
+              class="btn-primary">探索菜單</button>
+          </div>
+        `;
+      } else {
+        $("cartItems").innerHTML = `
+          <div class="space-y-6">
+            ${items.map(p => `
+              <div class="flex gap-4 border-b border-line pb-6">
+                <img src="${p.image}" alt="${escapeHTML(p.name)}"
+                  class="w-20 h-20 rounded object-cover shrink-0">
+                <div class="flex-1 min-w-0">
+                  <div class="flex justify-between gap-2">
+                    <h3 class="text-sm font-semibold">${escapeHTML(p.name)}</h3>
+                    <button type="button" onclick="removeFromCart('${p.id}')"
+                      aria-label="刪除${escapeHTML(p.name)}" class="text-muted hover:text-red-600">
+                      <i data-lucide="trash-2" class="w-4 h-4"></i>
+                    </button>
+                  </div>
+                  <p class="text-xs text-muted mt-1">${escapeHTML(p.unit)}</p>
+                  <div class="flex justify-between items-center mt-3 gap-2">
+                    <div class="flex items-center border border-line rounded">
+                      <button type="button" onclick="changeQuantity('${p.id}',-1)"
+                        aria-label="減少${escapeHTML(p.name)}數量" class="px-3 py-1">−</button>
+                      <span class="text-sm min-w-[22px] text-center">${p.qty}</span>
+                      <button type="button" onclick="changeQuantity('${p.id}',1)"
+                        aria-label="增加${escapeHTML(p.name)}數量" class="px-3 py-1">+</button>
+                    </div>
+                    <span class="text-sm font-bold">${currency(p.price * p.qty)}</span>
+                  </div>
+                </div>
+              </div>
+            `).join("")}
+          </div>
+        `;
+      }
+
+      refreshIcons();
+    }
+
+    function lockPage() {
+      document.body.classList.add("locked");
+    }
+
+    function unlockPage() {
+      if (!document.querySelector(".modal-backdrop.show") &&
+          !$("cartDrawer").classList.contains("open")) {
+        document.body.classList.remove("locked");
+      }
+    }
+
+    function openCart() {
+      closeMobileMenu();
+      lastFocusedElement = document.activeElement;
+      $("cartDrawer").classList.add("open");
+      $("cartDrawer").setAttribute("aria-hidden", "false");
+      $("drawerBackdrop").classList.add("show");
+      lockPage();
+      $("cartDrawer").focus();
+    }
+
+    function closeCart() {
+      $("cartDrawer").classList.remove("open");
+      $("cartDrawer").setAttribute("aria-hidden", "true");
+      $("drawerBackdrop").classList.remove("show");
+      unlockPage();
+      if (lastFocusedElement && document.contains(lastFocusedElement)) {
+        lastFocusedElement.focus();
+      }
+    }
+
+    // ================= 結帳 =================
+    function getAvailableFulfillments() {
+      const items = getCartDetails();
+      const hasGift = items.some(p => p.category === "gift");
+      const hasFresh = items.some(p => p.category !== "gift");
+
+      if (hasGift && hasFresh) return ["takeaway"];
+      if (hasGift) return ["takeaway", "delivery"];
+      return ["dinein", "takeaway"];
+    }
+
+    function updateFulfillmentOptions() {
+      const available = getAvailableFulfillments();
+      const labels = document.querySelectorAll('input[name="fulfillment"]');
+
+      labels.forEach(input => {
+        input.disabled = !available.includes(input.value);
+        input.parentElement.classList.toggle("opacity-40", input.disabled);
+      });
+
+      const selected = document.querySelector('input[name="fulfillment"]:checked');
+      if (!selected || selected.disabled) {
+        const first = document.querySelector(
+          `input[name="fulfillment"][value="${available[0]}"]`
+        );
+        first.checked = true;
+      }
+
+      const mixed = available.length === 1;
+      $("fulfillmentHint").textContent = mixed
+        ? "現做餐點與冷凍禮盒混合訂購，示範流程僅提供外帶。"
+        : "取餐與宅配方式依商品類型提供；宅配僅限冷凍禮盒。";
+
+      updateFulfillmentDetails();
+    }
+
+    function updateFulfillmentDetails() {
+      const selected = document.querySelector('input[name="fulfillment"]:checked');
+      const delivery = selected && selected.value === "delivery";
+
+      $("deliveryAddressWrap").classList.toggle("hidden", !delivery);
+      $("deliveryAddress").required = delivery;
+      $("pickupStoreWrap").classList.toggle("hidden", delivery);
+
+      renderCheckoutSummary();
+    }
+
+    function getDeliveryFee() {
+      const selected = document.querySelector('input[name="fulfillment"]:checked');
+      return selected && selected.value === "delivery" ? 120 : 0;
+    }
+
+    function renderCheckoutSummary() {
+      const items = getCartDetails();
+      const deliveryFee = getDeliveryFee();
+
+      $("checkoutSummary").innerHTML = items.map(p => `
+        <div class="flex justify-between gap-3">
+          <span>${escapeHTML(p.name)} × ${p.qty}</span>
+          <span>${currency(p.price * p.qty)}</span>
+        </div>
+      `).join("") + `
+        <div class="flex justify-between gap-3">
+          <span>配送費</span>
+          <span>${currency(deliveryFee)}</span>
+        </div>
+      `;
+
+      $("checkoutTotal").textContent = currency(getCartSubtotal() + deliveryFee);
+    }
+
+    function openCheckout() {
+      if (cart.size === 0) return;
+
+      closeCart();
+      lastFocusedElement = document.activeElement;
+
+      $("checkoutForm").reset();
+      $("checkoutFormView").classList.remove("hidden");
+      $("checkoutSuccessView").classList.add("hidden");
+
+      updateFulfillmentOptions();
+
+      $("checkoutModal").classList.add("show");
+      $("checkoutModal").setAttribute("aria-hidden", "false");
+      lockPage();
+      $("checkoutModal").querySelector(".modal-panel").focus();
+    }
+
+    function closeCheckout() {
+      $("checkoutModal").classList.remove("show");
+      $("checkoutModal").setAttribute("aria-hidden", "true");
+      unlockPage();
+      if (lastFocusedElement && document.contains(lastFocusedElement)) {
+        lastFocusedElement.focus();
+      }
+    }
+
+    function submitCheckout(event) {
+      event.preventDefault();
+      if (cart.size === 0) return;
+
+      const form = $("checkoutForm");
+      if (!form.reportValidity()) return;
+
+      const number = "DEMO-" + Date.now().toString().slice(-8);
+      $("successOrderNumber").textContent = "示範訂單編號：" + number;
+
+      cart.clear();
+      updateCartUI();
+
+      form.reset();
+      $("checkoutFormView").classList.add("hidden");
+      $("checkoutSuccessView").classList.remove("hidden");
+
+      $("checkoutModal").querySelector(".modal-panel").scrollTop = 0;
+      refreshIcons();
+    }
+
+    // ================= 門市 =================
+    function selectStore(index) {
+      const store = stores[index];
+      if (!store) return;
+
+      document.querySelectorAll(".store-tab").forEach(btn => {
+        btn.classList.toggle("active", Number(btn.dataset.store) === index);
+      });
+
+      $("storeName").textContent = store.name;
+      $("storeAddress").textContent = store.address;
+      $("storePhone").textContent = store.phone;
+      $("storeHours").textContent = store.hours;
+
+      const query = encodeURIComponent(store.mapQuery);
+
+      $("storeMap").src =
+        "https://maps.google.com/maps?q=" + query +
+        "&t=&z=14&ie=UTF8&iwloc=&output=embed";
+
+      $("mapLink").href =
+        "https://www.google.com/maps/search/?api=1&query=" + query;
+    }
+
+    // ================= FAQ =================
+    function toggleFAQ(button) {
+      const item = button.closest(".faq-item");
+      const wasOpen = item.classList.contains("open");
+
+      document.querySelectorAll(".faq-item").forEach(el => {
+        el.classList.remove("open");
+        el.querySelector("button").setAttribute("aria-expanded", "false");
+      });
+
+      if (!wasOpen) {
+        item.classList.add("open");
+        button.setAttribute("aria-expanded", "true");
+      }
+    }
+
+    // ================= 手機選單 =================
+    function toggleMobileMenu() {
+      const nav = $("mobileNav");
+      const open = nav.classList.toggle("hidden") === false;
+      $("mobileMenuButton").setAttribute("aria-expanded", String(open));
+    }
+
+    function closeMobileMenu() {
+      $("mobileNav").classList.add("hidden");
+      $("mobileMenuButton").setAttribute("aria-expanded", "false");
+    }
+
+    // ================= 其他互動 =================
+    function socialDemo(platform) {
+      showToast(platform + " 官方社群尚未設定，此為展示按鈕。");
+    }
+
+    function showPolicy() {
+      lastFocusedElement = document.activeElement;
+      $("policyModal").classList.add("show");
+      $("policyModal").setAttribute("aria-hidden", "false");
+      lockPage();
+      $("policyModal").querySelector(".modal-panel").focus();
+    }
+
+    function closePolicy() {
+      $("policyModal").classList.remove("show");
+      $("policyModal").setAttribute("aria-hidden", "true");
+      unlockPage();
+      if (lastFocusedElement && document.contains(lastFocusedElement)) {
+        lastFocusedElement.focus();
+      }
+    }
+
+    // 對話框焦點循環
+    document.addEventListener("keydown", event => {
+      if (event.key === "Escape") {
+        if ($("policyModal").classList.contains("show")) closePolicy();
+        else if ($("checkoutModal").classList.contains("show")) closeCheckout();
+        else if ($("cartDrawer").classList.contains("open")) closeCart();
+        else closeMobileMenu();
+      }
+
+      if (event.key !== "Tab") return;
+
+      let dialog = null;
+      if ($("policyModal").classList.contains("show")) {
+        dialog = $("policyModal");
+      } else if ($("checkoutModal").classList.contains("show")) {
+        dialog = $("checkoutModal");
+      } else if ($("cartDrawer").classList.contains("open")) {
+        dialog = $("cartDrawer");
+      }
+
+      if (!dialog) return;
+
+      const focusable = [...dialog.querySelectorAll(
+        'button:not(:disabled), a[href], input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex="0"]'
+      )].filter(el => el.getClientRects().length > 0);
+
+      if (!focusable.length) return;
+
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      } else if (!dialog.contains(document.activeElement)) {
+        event.preventDefault();
+        first.focus();
+      }
+    });
+
+    $("checkoutModal").addEventListener("click", event => {
+      if (event.target === $("checkoutModal")) closeCheckout();
+    });
+
+    $("policyModal").addEventListener("click", event => {
+      if (event.target === $("policyModal")) closePolicy();
+    });
+
+    document.querySelectorAll('input[name="fulfillment"]').forEach(input => {
+      input.addEventListener("change", updateFulfillmentDetails);
+    });
+
+    $("checkoutForm").addEventListener("submit", submitCheckout);
+
+    $("newsletterForm").addEventListener("submit", event => {
+      event.preventDefault();
+      if (!$("newsletterForm").reportValidity()) return;
+      showToast("已完成訂閱表單示範，尚未實際訂閱電子報。");
+      $("newsletterForm").reset();
+    });
+
+    // ================= 初始化 =================
+    function init() {
+      $("copyrightYear").textContent = new Date().getFullYear();
+
+      renderProducts();
+      updateCartUI();
+      selectStore(0);
+      refreshIcons();
+    }
+
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", init);
+    } else {
+      init();
+    }
+
+    window.addEventListener("load", refreshIcons);
+  </script>
 </body>
 </html>
